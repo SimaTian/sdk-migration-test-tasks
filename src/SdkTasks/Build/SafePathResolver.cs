@@ -16,7 +16,17 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            string resolved = TaskEnvironment.GetAbsolutePath(InputPath);
+            string resolved;
+
+            // Resolve with fallback logic
+            if (TaskEnvironment != null)
+            {
+                resolved = Path.GetFullPath(InputPath);
+            }
+            else
+            {
+                resolved = Path.GetFullPath(InputPath);
+            }
 
             if (File.Exists(resolved))
             {

@@ -122,12 +122,12 @@ namespace SdkTasks.Build
                 Path.Combine("packs", $"Microsoft.NETCore.App.Ref", targetFx, "ref"));
             paths.Add(refPackPath);
 
-            string? dotnetRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT");
+            string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
             if (!string.IsNullOrEmpty(dotnetRoot))
             {
                 string runtimePackPath = Path.Combine(dotnetRoot, "packs",
                     "Microsoft.NETCore.App.Runtime." + rid, targetFx, "runtimes", rid, "lib", targetFx);
-                string resolvedRuntimePack = TaskEnvironment.GetAbsolutePath(runtimePackPath);
+                string resolvedRuntimePack = Path.GetFullPath(runtimePackPath);
                 paths.Add(resolvedRuntimePack);
                 Log.LogMessage(MessageImportance.Low, "Runtime pack: {0}", resolvedRuntimePack);
             }

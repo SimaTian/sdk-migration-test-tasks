@@ -18,7 +18,9 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            var canonical = TaskEnvironment.GetCanonicalForm(InputPath);
+            // Resolve input path to canonical form
+            var resolved = Path.GetFullPath(InputPath);
+            var canonical = Path.GetFullPath(resolved);
 
             CanonicalPath = canonical;
 

@@ -96,6 +96,9 @@ namespace SdkTasks.Compilation
 
         private ItemData NormalizePaths(ItemData data)
         {
+            // Skip normalization for ExternalReference — handled in ResolveGroupPaths
+            if (string.Equals(data.Category, "ExternalReference", StringComparison.OrdinalIgnoreCase))
+                return data;
             string normalized = TaskEnvironment.GetCanonicalForm(data.Path);
             return data with { Path = normalized };
         }
@@ -108,7 +111,7 @@ namespace SdkTasks.Compilation
             {
                 if (string.Equals(group.Key, "ExternalReference", StringComparison.OrdinalIgnoreCase))
                 {
-                    string resolved = TaskEnvironment.GetAbsolutePath(item.Path);
+                    string resolved = Path.GetFullPath(item.Path);
                     yield return item with { Path = resolved };
                 }
                 else
