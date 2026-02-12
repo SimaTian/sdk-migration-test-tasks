@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Reflection;
 using Xunit;
 using Microsoft.Build.Framework;
 using SdkTasks.Tests.Infrastructure;
@@ -57,6 +58,29 @@ namespace SdkTasks.Tests
 
             Assert.True(result);
             Assert.Equal(_projectDir, task.CurrentDir);
+        }
+
+        [Fact]
+        public void CurrentDir_Output_StartsWithProjectDirectory()
+        {
+            var task = new SdkTasks.Build.WorkingDirectoryResolver();
+            task.BuildEngine = new MockBuildEngine();
+            task.TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir);
+
+            var result = task.Execute();
+            Assert.True(result);
+
+            // Reflection-based: all [Output] string properties must start with ProjectDirectory
+            var outputProps = typeof(SdkTasks.Build.WorkingDirectoryResolver)
+                .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => p.GetCustomAttribute<OutputAttribute>() != null && p.PropertyType == typeof(string));
+
+            foreach (var prop in outputProps)
+            {
+                var value = (string?)prop.GetValue(task);
+                Assert.NotNull(value);
+                Assert.StartsWith(_projectDir, value!);
+            }
         }
 
         public void Dispose()

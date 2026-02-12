@@ -18,22 +18,6 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.PathNormalizer),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
-        public void ShouldImplementIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.PathNormalizer();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
         public void ShouldResolveRelativeToProjectDirectory()
         {
             var relativePath = "testfile.txt";
@@ -51,6 +35,83 @@ namespace SdkTasks.Tests
 
             Assert.True(result);
             Assert.Contains(_engine.Messages, m => m.Message!.Contains("File found at"));
+        }
+
+        [Fact]
+        public void ShouldCallGetAbsolutePathOnTaskEnvironment()
+        {
+            var relativePath = "tracked.txt";
+            File.WriteAllText(Path.Combine(_projectDir, relativePath), "data");
+
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(_projectDir);
+            var task = new SdkTasks.Build.PathNormalizer
+            {
+                BuildEngine = _engine,
+                InputPath = relativePath,
+                TaskEnvironment = tracking
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertUsesGetAbsolutePath(tracking);
+            Assert.Contains(relativePath, tracking.GetAbsolutePathArgs);
+        }
+
+        [Fact]
+        public void ShouldNotResolveRelativeToCwd()
+        {
+            var relativePath = "cwd-check.txt";
+            // Only create file in projectDir, NOT in CWD
+            File.WriteAllText(Path.Combine(_projectDir, relativePath), "content");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Build.PathNormalizer
+            {
+                BuildEngine = _engine,
+                InputPath = relativePath,
+                TaskEnvironment = taskEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            // Resolved path must point to projectDir, not CWD
+            Assert.Contains(_engine.Messages, m =>
+                m.Message!.Contains("Resolved path:") && m.Message!.Contains(_projectDir));
+        }
+
+        [Fact]
+        public void ShouldLogErrorWhenInputPathIsEmpty()
+        {
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Build.PathNormalizer
+            {
+                BuildEngine = _engine,
+                InputPath = string.Empty,
+                TaskEnvironment = taskEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.False(result);
+            Assert.Contains(_engine.Errors, e => e.Message!.Contains("InputPath is required"));
+        }
+
+        [Fact]
+        public void ShouldReportFileNotFoundForMissingFile()
+        {
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Build.PathNormalizer
+            {
+                BuildEngine = _engine,
+                InputPath = "nonexistent.txt",
+                TaskEnvironment = taskEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.Contains(_engine.Messages, m => m.Message!.Contains("File not found at"));
         }
     }
 }

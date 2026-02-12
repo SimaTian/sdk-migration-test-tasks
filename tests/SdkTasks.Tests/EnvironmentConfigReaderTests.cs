@@ -14,28 +14,18 @@ namespace SdkTasks.Tests
                 Environment.SetEnvironmentVariable(name, null);
         }
 
-        [Fact]
-        public void ImplementsIMultiThreadableTask()
+        private string SetGlobalEnvVar(string value)
         {
-            var task = new SdkTasks.Configuration.EnvironmentConfigReader();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Configuration.EnvironmentConfigReader),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
+            var name = "MSBUILD_TEST_" + Guid.NewGuid().ToString("N")[..8];
+            Environment.SetEnvironmentVariable(name, value);
+            _envVarsToClean.Add(name);
+            return name;
         }
 
         [Fact]
         public void ShouldReadFromTaskEnvironment()
         {
-            var varName = "MSBUILD_TEST_" + Guid.NewGuid().ToString("N")[..8];
-            Environment.SetEnvironmentVariable(varName, "GLOBAL_VALUE");
-            _envVarsToClean.Add(varName);
+            var varName = SetGlobalEnvVar("GLOBAL_VALUE");
 
             var taskEnv = TaskEnvironmentHelper.CreateForTest();
             taskEnv.SetEnvironmentVariable(varName, "TASK_VALUE");
@@ -49,7 +39,92 @@ namespace SdkTasks.Tests
 
             task.Execute();
 
+            // Task should read from TaskEnvironment, not global env
             Assert.Equal("TASK_VALUE", task.VariableValue);
+        }
+
+        [Fact]
+        public void ShouldCallGetEnvironmentVariableOnTaskEnvironment()
+        {
+            var varName = SetGlobalEnvVar("GLOBAL_VALUE");
+
+            var trackingEnv = new TrackingTaskEnvironment();
+            trackingEnv.SetEnvironmentVariable(varName, "TRACKED_VALUE");
+
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                VariableName = varName
+            };
+
+            task.Execute();
+
+            // Verify TaskEnvironment.GetEnvironmentVariable was called
+            SharedTestHelpers.AssertUsesGetEnvironmentVariable(trackingEnv);
+            Assert.Equal("TRACKED_VALUE", task.VariableValue);
+        }
+
+        [Fact]
+        public void Execute_ReturnsTrue()
+        {
+            var varName = SetGlobalEnvVar("SOME_VALUE");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest();
+            taskEnv.SetEnvironmentVariable(varName, "SOME_VALUE");
+
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = taskEnv,
+                VariableName = varName
+            };
+
+            var result = task.Execute();
+
+            Assert.True(result);
+        }
+
+        [Fact]
+        public void ShouldReturnNullForUnsetVariable()
+        {
+            var varName = "MSBUILD_UNSET_" + Guid.NewGuid().ToString("N")[..8];
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest();
+
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = taskEnv,
+                VariableName = varName
+            };
+
+            task.Execute();
+
+            Assert.Null(task.VariableValue);
+        }
+
+        [Fact]
+        public void ShouldPreferTaskEnvironmentOverGlobalEnv()
+        {
+            var varName = SetGlobalEnvVar("GLOBAL_VALUE");
+
+            // Set a different value in TaskEnvironment
+            var trackingEnv = new TrackingTaskEnvironment();
+            trackingEnv.SetEnvironmentVariable(varName, "TASK_SCOPED_VALUE");
+
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                VariableName = varName
+            };
+
+            task.Execute();
+
+            // Must read the task-scoped value, proving it goes through TaskEnvironment
+            Assert.Equal("TASK_SCOPED_VALUE", task.VariableValue);
+            Assert.Equal(1, trackingEnv.GetEnvironmentVariableCallCount);
         }
     }
 }

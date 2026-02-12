@@ -26,7 +26,7 @@ namespace SdkTasks.Build
             }
 
             var resolvedDirectory = TaskEnvironment.GetAbsolutePath(NewDirectory!);
-            Log.LogMessage(MessageImportance.Normal, "Directory context for build operations: {0} (resolved from: {1})", resolvedDirectory, NewDirectory);
+            Log.LogMessage(MessageImportance.Normal, "Directory context for build operations: {0} (resolved from: {1})", resolvedDirectory.ToLowerInvariant(), NewDirectory!.ToLowerInvariant());
             return true;
         }
     }

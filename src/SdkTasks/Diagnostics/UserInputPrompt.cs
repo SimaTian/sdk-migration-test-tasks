@@ -9,12 +9,14 @@ namespace SdkTasks.Diagnostics
     {
         public TaskEnvironment TaskEnvironment { get; set; } = new();
 
+        public string? DefaultInput { get; set; }
+
         [Output]
         public string? UserInput { get; set; }
 
         public override bool Execute()
         {
-            Log.LogWarning("Interactive console input is not supported in multithreaded builds.");
+            Log.LogWarning("Interactive console input is not supported in multithreaded builds");
             UserInput = string.Empty;
             return true;
         }

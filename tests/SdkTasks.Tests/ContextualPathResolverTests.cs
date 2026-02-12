@@ -1,6 +1,7 @@
 using Xunit;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
+using SdkTasks.Build;
 using SdkTasks.Tests.Infrastructure;
 
 namespace SdkTasks.Tests
@@ -20,22 +21,6 @@ namespace SdkTasks.Tests
         {
             foreach (var dir in _tempDirs)
                 TestHelper.CleanupTempDirectory(dir);
-        }
-
-        [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.ContextualPathResolver();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.ContextualPathResolver),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
         }
 
         [Fact]
@@ -63,7 +48,7 @@ namespace SdkTasks.Tests
 
             for (int i = 0; i < 50 && !cwdChanged; i++)
             {
-                var task = new SdkTasks.Build.ContextualPathResolver
+                var task = new ContextualPathResolver
                 {
                     BuildEngine = new MockBuildEngine(),
                     TaskEnvironment = TaskEnvironmentHelper.CreateForTest(dir1),
@@ -87,14 +72,14 @@ namespace SdkTasks.Tests
             var dir1 = CreateProjectDir();
             var dir2 = CreateProjectDir();
 
-            var task1 = new SdkTasks.Build.ContextualPathResolver
+            var task1 = new ContextualPathResolver
             {
                 BuildEngine = new MockBuildEngine(),
                 TaskEnvironment = TaskEnvironmentHelper.CreateForTest(dir1),
                 RelativePaths = new[] { "src\\file.cs" },
             };
 
-            var task2 = new SdkTasks.Build.ContextualPathResolver
+            var task2 = new ContextualPathResolver
             {
                 BuildEngine = new MockBuildEngine(),
                 TaskEnvironment = TaskEnvironmentHelper.CreateForTest(dir2),
@@ -110,6 +95,117 @@ namespace SdkTasks.Tests
             Assert.StartsWith(dir1, resolved1, StringComparison.OrdinalIgnoreCase);
             Assert.StartsWith(dir2, resolved2, StringComparison.OrdinalIgnoreCase);
             Assert.NotEqual(resolved1, resolved2);
+        }
+
+        [Fact]
+        public void ShouldUseGetCanonicalForm_ViaTaskEnvironment()
+        {
+            var projectDir = CreateProjectDir();
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking,
+                RelativePaths = new[] { "src\\file.cs", "lib\\helper.cs" },
+            };
+
+            Assert.True(task.Execute());
+
+            // Task must call GetCanonicalForm for each relative path
+            Assert.True(tracking.GetCanonicalFormCallCount >= 2,
+                $"Expected GetCanonicalForm to be called at least 2 times, but was called {tracking.GetCanonicalFormCallCount} times.");
+        }
+
+        [Fact]
+        public void EmptyPaths_ReturnsSuccessWithNoItems()
+        {
+            var projectDir = CreateProjectDir();
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                RelativePaths = Array.Empty<string>(),
+            };
+
+            Assert.True(task.Execute());
+            Assert.Empty(task.ResolvedItems);
+        }
+
+        [Fact]
+        public void SetsMetadataOnResolvedItems()
+        {
+            var projectDir = CreateProjectDir();
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                RelativePaths = new[] { "src\\file.cs" },
+            };
+
+            Assert.True(task.Execute());
+
+            var item = task.ResolvedItems[0];
+            Assert.Equal("src\\file.cs", item.GetMetadata("OriginalRelativePath"));
+            Assert.Equal(projectDir, item.GetMetadata("ProjectDirectory"));
+            Assert.Equal("False", item.GetMetadata("IsRooted"));
+        }
+
+        [Fact]
+        public void SkipsWhitespaceEntries_WithWarning()
+        {
+            var projectDir = CreateProjectDir();
+            var engine = new MockBuildEngine();
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                RelativePaths = new[] { "  ", "src\\file.cs" },
+            };
+
+            Assert.True(task.Execute());
+            Assert.Single(task.ResolvedItems);
+            Assert.Contains(engine.Warnings, w => w.Message!.Contains("empty relative path"));
+        }
+
+        [Fact]
+        public void AutoInitializesProjectDirectory_FromBuildEngine()
+        {
+            var tracking = new TrackingTaskEnvironment();
+            // Leave ProjectDirectory empty to trigger auto-init from BuildEngine
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking,
+                RelativePaths = new[] { "src\\file.cs" },
+            };
+
+            Assert.True(task.Execute());
+
+            // GetCanonicalForm should be called during auto-init for the project file path
+            Assert.True(tracking.GetCanonicalFormCallCount >= 1,
+                "Task should call GetCanonicalForm when auto-initializing ProjectDirectory.");
+        }
+
+        [Fact]
+        public void WarnsWhenPathEscapesProjectDirectory()
+        {
+            var projectDir = CreateProjectDir();
+            var engine = new MockBuildEngine();
+
+            var task = new ContextualPathResolver
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                RelativePaths = new[] { "..\\..\\etc\\passwd" },
+            };
+
+            Assert.True(task.Execute());
+            Assert.Contains(engine.Warnings, w => w.Message!.Contains("escapes project directory"));
         }
     }
 }

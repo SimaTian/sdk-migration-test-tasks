@@ -58,7 +58,7 @@ namespace SdkTasks.Build
                 {
                     try
                     {
-                        var result = ProcessWorkItem(captured, projectDir);
+                        var result = ProcessWorkItem(captured);
                         if (result != null)
                             completed.Add(result);
                     }
@@ -88,7 +88,7 @@ namespace SdkTasks.Build
             return errors.IsEmpty;
         }
 
-        private ITaskItem? ProcessWorkItem(ITaskItem item, string projectDir)
+        private ITaskItem? ProcessWorkItem(ITaskItem item)
         {
             string identity = item.ItemSpec;
             string category = item.GetMetadata("Category") ?? string.Empty;
@@ -99,7 +99,7 @@ namespace SdkTasks.Build
             {
                 resolvedPath = Path.IsPathRooted(configPath)
                     ? configPath
-                    : Path.Combine(projectDir, configPath);
+                    : TaskEnvironment.GetAbsolutePath(configPath);
             }
             else if (category.Equals("ConfigPath", StringComparison.OrdinalIgnoreCase))
             {
@@ -112,7 +112,7 @@ namespace SdkTasks.Build
             }
             else
             {
-                resolvedPath = Path.Combine(projectDir, identity);
+                resolvedPath = TaskEnvironment.GetAbsolutePath(identity);
             }
 
             var result = new TaskItem(identity);

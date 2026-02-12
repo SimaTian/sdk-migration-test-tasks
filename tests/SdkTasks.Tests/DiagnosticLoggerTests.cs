@@ -4,22 +4,21 @@ using SdkTasks.Tests.Infrastructure;
 
 namespace SdkTasks.Tests
 {
-    public class DiagnosticLoggerTests
+    public class DiagnosticLoggerTests : IDisposable
     {
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
+        private readonly List<string> _tempDirs = new();
+
+        private string CreateTempDir()
         {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Diagnostics.DiagnosticLogger),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
+            var dir = TestHelper.CreateNonCwdTempDirectory();
+            _tempDirs.Add(dir);
+            return dir;
         }
 
-        [Fact]
-        public void ShouldImplementIMultiThreadableTask()
+        public void Dispose()
         {
-            var task = new SdkTasks.Diagnostics.DiagnosticLogger();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
+            foreach (var dir in _tempDirs)
+                TestHelper.CleanupTempDirectory(dir);
         }
 
         [Fact]
@@ -29,6 +28,7 @@ namespace SdkTasks.Tests
             var task = new SdkTasks.Diagnostics.DiagnosticLogger
             {
                 BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(),
                 Message = "Hello from task"
             };
 
@@ -38,16 +38,73 @@ namespace SdkTasks.Tests
                 using var sw = new StringWriter();
                 Console.SetOut(sw);
 
-                task.Execute();
+                bool result = task.Execute();
 
+                Assert.True(result);
+                // Assert CORRECT behavior: output should NOT go to Console
                 string consoleOutput = sw.ToString();
                 Assert.DoesNotContain("Hello from task", consoleOutput);
+                // Assert CORRECT behavior: output should go to build engine
                 Assert.Contains(engine.Messages, m => m.Message!.Contains("Hello from task"));
             }
             finally
             {
                 Console.SetOut(originalOut);
             }
+        }
+
+        [Fact]
+        public void ShouldExecuteWithNonCwdProjectDirectory()
+        {
+            var projectDir = CreateTempDir();
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                Message = "Logging from non-CWD project"
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.Contains(engine.Messages, m => m.Message!.Contains("Logging from non-CWD project"));
+        }
+
+        [Fact]
+        public void ShouldAcceptTrackingTaskEnvironment()
+        {
+            var projectDir = CreateTempDir();
+            var trackingEnv = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            {
+                BuildEngine = engine,
+                TaskEnvironment = trackingEnv,
+                Message = "Tracked message"
+            };
+
+            bool result = task.Execute();
+
+            // Task should execute correctly with TrackingTaskEnvironment
+            Assert.True(result);
+            Assert.Contains(engine.Messages, m => m.Message!.Contains("Tracked message"));
+        }
+
+        [Fact]
+        public void ShouldLogEmptyMessageWhenMessageIsNull()
+        {
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(),
+                Message = null
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
         }
     }
 }

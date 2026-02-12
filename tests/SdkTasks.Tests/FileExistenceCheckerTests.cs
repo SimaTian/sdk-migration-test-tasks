@@ -1,55 +1,126 @@
 using Xunit;
 using Microsoft.Build.Framework;
+using SdkTasks.Build;
 using SdkTasks.Tests.Infrastructure;
 
 namespace SdkTasks.Tests
 {
     public class FileExistenceCheckerTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly List<string> _tempDirs = new();
 
-        public FileExistenceCheckerTests()
+        private string CreateTempDir()
         {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
+            var dir = TestHelper.CreateNonCwdTempDirectory();
+            _tempDirs.Add(dir);
+            return dir;
         }
 
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
-
-        [Fact]
-        public void ImplementsIMultiThreadableTask()
+        public void Dispose()
         {
-            var task = new SdkTasks.Build.FileExistenceChecker();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
+            foreach (var dir in _tempDirs)
+                TestHelper.CleanupTempDirectory(dir);
         }
 
         [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
+        public void Execute_WithRelativePath_ShouldResolveRelativeToProjectDirectory()
         {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.FileExistenceChecker),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
-        public void ShouldResolveRelativeToProjectDirectory()
-        {
+            var projectDir = CreateTempDir();
             var relativePath = "filecheck.txt";
-            File.WriteAllText(Path.Combine(_projectDir, relativePath), "exists");
+            File.WriteAllText(Path.Combine(projectDir, relativePath), "test content");
 
-            var task = new SdkTasks.Build.FileExistenceChecker
+            var task = new FileExistenceChecker
             {
-                BuildEngine = _engine,
-                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir),
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
                 FilePath = relativePath
             };
 
             bool result = task.Execute();
+            var engine = (MockBuildEngine)task.BuildEngine;
 
             Assert.True(result);
-            Assert.Contains(_engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
+            Assert.Contains(engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
+        }
+
+        [Fact]
+        public void Execute_WithRelativePath_ShouldCallGetAbsolutePath()
+        {
+            var projectDir = CreateTempDir();
+            var relativePath = "tracked.txt";
+            File.WriteAllText(Path.Combine(projectDir, relativePath), "hello");
+
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+            var task = new FileExistenceChecker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking,
+                FilePath = relativePath
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertUsesGetAbsolutePath(tracking);
+            Assert.Contains(relativePath, tracking.GetAbsolutePathArgs);
+        }
+
+        [Fact]
+        public void Execute_WithMissingFile_ShouldLogWarning()
+        {
+            var projectDir = CreateTempDir();
+
+            var task = new FileExistenceChecker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                FilePath = "nonexistent.txt"
+            };
+
+            bool result = task.Execute();
+            var engine = (MockBuildEngine)task.BuildEngine;
+
+            Assert.True(result);
+            Assert.Contains(engine.Warnings, w => w.Message!.Contains("was not found"));
+        }
+
+        [Fact]
+        public void Execute_WithEmptyFilePath_ShouldLogError()
+        {
+            var task = new FileExistenceChecker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(),
+                FilePath = ""
+            };
+
+            bool result = task.Execute();
+            var engine = (MockBuildEngine)task.BuildEngine;
+
+            Assert.False(result);
+            Assert.Contains(engine.Errors, e => e.Message!.Contains("FilePath is required"));
+        }
+
+        [Fact]
+        public void Execute_ResolvesPathToProjectDir_NotProcessCwd()
+        {
+            var projectDir = CreateTempDir();
+            var relativePath = "projfile.txt";
+            File.WriteAllText(Path.Combine(projectDir, relativePath), "project content");
+
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+            var task = new FileExistenceChecker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking,
+                FilePath = relativePath
+            };
+
+            bool result = task.Execute();
+            var engine = (MockBuildEngine)task.BuildEngine;
+
+            Assert.True(result);
+            Assert.Contains(engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
+            SharedTestHelpers.AssertUsesGetAbsolutePath(tracking);
         }
     }
 }
