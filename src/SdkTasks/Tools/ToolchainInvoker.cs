@@ -60,8 +60,25 @@ namespace SdkTasks.Tools
                 return false;
             }
 
-            string stdout = ReadProcessOutput(process);
-            string stderr = process.StandardError.ReadToEnd();
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+
+            process.OutputDataReceived += (s, e) =>
+            {
+                if (e.Data != null)
+                {
+                    stdoutBuilder.AppendLine(e.Data);
+                    Log.LogMessage(MessageImportance.Low, e.Data);
+                }
+            };
+            process.ErrorDataReceived += (s, e) =>
+            {
+                if (e.Data != null)
+                    stderrBuilder.AppendLine(e.Data);
+            };
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
             bool exited = process.WaitForExit(TimeoutMilliseconds);
             if (!exited)
@@ -71,12 +88,16 @@ namespace SdkTasks.Tools
                 return false;
             }
 
+            // Ensure all async output events have been delivered
+            process.WaitForExit();
+
+            string stderr = stderrBuilder.ToString();
             if (!string.IsNullOrWhiteSpace(stderr))
             {
                 Log.LogWarning("stderr: {0}", stderr.Trim());
             }
 
-            ToolOutput = stdout;
+            ToolOutput = stdoutBuilder.ToString().TrimEnd();
             return ValidateExitCode(process.ExitCode);
         }
 
@@ -102,21 +123,6 @@ namespace SdkTasks.Tools
             }
 
             return psi;
-        }
-
-        private string ReadProcessOutput(Process process)
-        {
-            var sb = new StringBuilder();
-            while (!process.StandardOutput.EndOfStream)
-            {
-                string? line = process.StandardOutput.ReadLine();
-                if (line != null)
-                {
-                    sb.AppendLine(line);
-                    Log.LogMessage(MessageImportance.Low, line);
-                }
-            }
-            return sb.ToString().TrimEnd();
         }
 
         private bool ValidateExitCode(int exitCode)

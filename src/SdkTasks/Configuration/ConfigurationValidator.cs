@@ -27,6 +27,16 @@ namespace SdkTasks.Configuration
         {
             try
             {
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 // Read configuration from process environment.
                 var configValue = TaskEnvironment.GetEnvironmentVariable(ConfigKey);
 
@@ -106,7 +116,7 @@ namespace SdkTasks.Configuration
         private string ResolveConfigPath(string configValue)
         {
             // Build a path from the config value relative to the project directory.
-            var candidate = Path.Combine(TaskEnvironment.ProjectDirectory, configValue);
+            string candidate = TaskEnvironment.GetAbsolutePath(configValue);
 
             if (Directory.Exists(candidate))
             {

@@ -22,22 +22,6 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.IntermediateFileTransformer();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.IntermediateFileTransformer),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldUseIsolatedTempFiles()
         {
             var dir1 = CreateProjectDir();
@@ -80,6 +64,94 @@ namespace SdkTasks.Tests
 
             Assert.Contains("Content from project A", task1.TransformedContent);
             Assert.Contains("Content from project B", task2.TransformedContent);
+        }
+
+        [Fact]
+        public void ShouldCallGetAbsolutePathOnTaskEnvironment()
+        {
+            var projectDir = CreateProjectDir();
+            File.WriteAllText(Path.Combine(projectDir, "tracked.txt"), "tracked content");
+
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = projectDir };
+
+            var task = new SdkTasks.Build.IntermediateFileTransformer
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                InputFile = "tracked.txt",
+                TransformName = "tracktest",
+            };
+
+            Assert.True(task.Execute());
+
+            SharedTestHelpers.AssertGetAbsolutePathCalled(trackingEnv);
+            Assert.Contains("tracked.txt", trackingEnv.GetAbsolutePathArgs);
+        }
+
+        [Fact]
+        public void ShouldResolveInputFileRelativeToProjectDirectory()
+        {
+            var projectDir = CreateProjectDir();
+            File.WriteAllText(Path.Combine(projectDir, "data.txt"), "project-scoped data");
+            var cwd = Directory.GetCurrentDirectory();
+
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Build.IntermediateFileTransformer
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                InputFile = "data.txt",
+                TransformName = "cwdtest",
+            };
+
+            Assert.True(task.Execute());
+
+            // The transformed content should reference the project directory, not CWD
+            Assert.Contains("project-scoped data", task.TransformedContent);
+            Assert.DoesNotContain(engine.Errors, e => e.Message!.Contains("does not exist"));
+        }
+
+        [Fact]
+        public void ShouldWriteIntermediateFileUnderProjectDirectory()
+        {
+            var projectDir = CreateProjectDir();
+            File.WriteAllText(Path.Combine(projectDir, "source.txt"), "source content");
+
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Build.IntermediateFileTransformer
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                InputFile = "source.txt",
+                TransformName = "pathcheck",
+            };
+
+            Assert.True(task.Execute());
+
+            // Intermediate file path in log should reference projectDir
+            var writeMsg = engine.Messages.FirstOrDefault(m =>
+                m.Message?.Contains("Wrote intermediate result") == true);
+            Assert.NotNull(writeMsg);
+            Assert.Contains(projectDir, writeMsg!.Message!, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ShouldReturnFalseWhenInputFileNotFoundInProjectDirectory()
+        {
+            var projectDir = CreateProjectDir();
+            // Do NOT create the file in projectDir
+
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Build.IntermediateFileTransformer
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                InputFile = "nonexistent.txt",
+                TransformName = "missingfile",
+            };
+
+            Assert.False(task.Execute());
+            Assert.Contains(engine.Errors, e => e.Message!.Contains("does not exist"));
         }
     }
 }

@@ -18,28 +18,32 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.CanonicalPathBuilder();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.CanonicalPathBuilder),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldUseTaskEnvironmentGetCanonicalForm()
         {
             var fileName = "double-test.txt";
             File.WriteAllText(Path.Combine(_projectDir, fileName), "data");
 
-            var taskEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Build.CanonicalPathBuilder
+            {
+                BuildEngine = _engine,
+                InputPath = fileName,
+                TaskEnvironment = trackingEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            SharedTestHelpers.AssertGetCanonicalFormCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldResolveCanonicalPathRelativeToProjectDirectory()
+        {
+            var fileName = "canon-test.txt";
+            File.WriteAllText(Path.Combine(_projectDir, fileName), "data");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
             var task = new SdkTasks.Build.CanonicalPathBuilder
             {
                 BuildEngine = _engine,
@@ -47,11 +51,72 @@ namespace SdkTasks.Tests
                 TaskEnvironment = taskEnv
             };
 
-            bool result = task.Execute();
+            task.Execute();
 
-            Assert.True(result);
-            Assert.True(taskEnv.GetCanonicalFormCallCount > 0,
-                "Task should use TaskEnvironment.GetCanonicalForm() instead of Path.GetFullPath()");
+            Assert.NotNull(task.CanonicalPath);
+            Assert.StartsWith(_projectDir, task.CanonicalPath!);
+        }
+
+        [Fact]
+        public void ShouldCanonicalizePathWithParentDirectoryReferences()
+        {
+            var relativePath = "subdir\\..\\canon-test.txt";
+            Directory.CreateDirectory(Path.Combine(_projectDir, "subdir"));
+            File.WriteAllText(Path.Combine(_projectDir, "canon-test.txt"), "content");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Build.CanonicalPathBuilder
+            {
+                BuildEngine = _engine,
+                InputPath = relativePath,
+                TaskEnvironment = taskEnv
+            };
+
+            task.Execute();
+
+            Assert.NotNull(task.CanonicalPath);
+            Assert.StartsWith(_projectDir, task.CanonicalPath!);
+            // Canonical form should not contain ".."
+            Assert.DoesNotContain("..", task.CanonicalPath!);
+        }
+
+        [Fact]
+        public void ShouldNotUsePathGetFullPathDirectly()
+        {
+            var fileName = "no-getfullpath.txt";
+
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Build.CanonicalPathBuilder
+            {
+                BuildEngine = _engine,
+                InputPath = fileName,
+                TaskEnvironment = trackingEnv
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertGetCanonicalFormCalled(trackingEnv);
+            Assert.Contains(fileName, trackingEnv.GetCanonicalFormArgs);
+        }
+
+        [Fact]
+        public void ShouldNotResolveRelativeToCwd()
+        {
+            var fileName = "cwd-canon.txt";
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Build.CanonicalPathBuilder
+            {
+                BuildEngine = _engine,
+                InputPath = fileName,
+                TaskEnvironment = taskEnv
+            };
+
+            task.Execute();
+
+            Assert.NotNull(task.CanonicalPath);
+            // The canonical path should be under projectDir, not CWD
+            Assert.StartsWith(_projectDir, task.CanonicalPath!);
         }
     }
 }

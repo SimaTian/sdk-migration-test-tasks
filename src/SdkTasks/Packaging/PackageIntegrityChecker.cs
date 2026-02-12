@@ -17,7 +17,7 @@ namespace SdkTasks.Packaging
     [MSBuildMultiThreadableTask]
     public class PackageIntegrityChecker : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public string PackagesDirectory { get; set; } = string.Empty;
@@ -216,15 +216,17 @@ namespace SdkTasks.Packaging
             string? envValue = TaskEnvironment.GetEnvironmentVariable("NUGET_PACKAGES");
             if (!string.IsNullOrEmpty(envValue))
             {
+                string resolvedEnvPath = TaskEnvironment.GetAbsolutePath(envValue);
                 Log.LogMessage(MessageImportance.Low,
-                    "Using NUGET_PACKAGES environment variable: {0}", envValue);
-                return envValue;
+                    "Using NUGET_PACKAGES environment variable: {0}", resolvedEnvPath);
+                return resolvedEnvPath;
             }
 
             string userProfile = TaskEnvironment.GetEnvironmentVariable("USERPROFILE")
                 ?? TaskEnvironment.GetEnvironmentVariable("HOME")
                 ?? string.Empty;
-            string defaultPath = Path.Combine(userProfile, ".nuget", "packages");
+            string defaultPath = TaskEnvironment.GetAbsolutePath(
+                Path.Combine(userProfile, ".nuget", "packages"));
             Log.LogMessage(MessageImportance.Low,
                 "Falling back to default global packages folder: {0}", defaultPath);
             return defaultPath;

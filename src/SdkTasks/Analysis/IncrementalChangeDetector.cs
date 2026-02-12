@@ -39,6 +39,17 @@ namespace SdkTasks.Analysis
 
         public override bool Execute()
         {
+            // Defensive ProjectDirectory init from BuildEngine
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(WatchDirectory))
             {
                 Log.LogError("WatchDirectory must be specified.");

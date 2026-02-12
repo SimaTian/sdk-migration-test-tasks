@@ -13,7 +13,7 @@ namespace SdkTasks.Compilation
     [MSBuildMultiThreadableTask]
     public class ItemFilterPipeline : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public ITaskItem[] InputItems { get; set; } = Array.Empty<ITaskItem>();
@@ -31,6 +31,16 @@ namespace SdkTasks.Compilation
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (InputItems == null || InputItems.Length == 0)
             {
                 FilteredItems = Array.Empty<ITaskItem>();

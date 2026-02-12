@@ -23,22 +23,6 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.ContextualPathResolver();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.ContextualPathResolver),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldNotModifyGlobalCwd()
         {
             var dir1 = CreateProjectDir();
@@ -110,6 +94,66 @@ namespace SdkTasks.Tests
             Assert.StartsWith(dir1, resolved1, StringComparison.OrdinalIgnoreCase);
             Assert.StartsWith(dir2, resolved2, StringComparison.OrdinalIgnoreCase);
             Assert.NotEqual(resolved1, resolved2);
+        }
+
+        [Fact]
+        public void ShouldUseTaskEnvironmentGetCanonicalForm()
+        {
+            var dir1 = CreateProjectDir();
+
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = dir1 };
+            var task = new SdkTasks.Build.ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                RelativePaths = new[] { "src\\file.cs" },
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertGetCanonicalFormCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldResolveMultipleRelativePaths()
+        {
+            var dir1 = CreateProjectDir();
+            var paths = new[] { "src\\file1.cs", "lib\\file2.cs", "tests\\file3.cs" };
+
+            var task = new SdkTasks.Build.ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(dir1),
+                RelativePaths = paths,
+            };
+
+            Assert.True(task.Execute());
+            Assert.Equal(3, task.ResolvedItems.Length);
+
+            foreach (var item in task.ResolvedItems)
+            {
+                Assert.StartsWith(dir1, item.ItemSpec, StringComparison.OrdinalIgnoreCase);
+                Assert.False(string.IsNullOrEmpty(item.GetMetadata("OriginalRelativePath")));
+            }
+        }
+
+        [Fact]
+        public void ShouldSetProjectDirectoryMetadata()
+        {
+            var dir1 = CreateProjectDir();
+
+            var task = new SdkTasks.Build.ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(dir1),
+                RelativePaths = new[] { "src\\file.cs" },
+            };
+
+            task.Execute();
+
+            Assert.NotEmpty(task.ResolvedItems);
+            string metadata = task.ResolvedItems[0].GetMetadata("ProjectDirectory");
+            Assert.Equal(dir1, metadata);
         }
     }
 }

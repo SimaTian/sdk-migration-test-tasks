@@ -17,7 +17,7 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class FrameworkAssemblyLocator : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public ITaskItem[] References { get; set; } = Array.Empty<ITaskItem>();
@@ -39,6 +39,16 @@ namespace SdkTasks.Build
         {
             try
             {
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 Log.LogMessage(MessageImportance.Normal,
                     "Resolving {0} references for {1}/{2}",
                     References.Length, TargetFramework, RuntimeIdentifier);
@@ -216,8 +226,12 @@ namespace SdkTasks.Build
                 string output = process.StandardOutput.ReadToEnd().Trim();
                 process.WaitForExit(15000);
 
-                if (process.ExitCode == 0 && !string.IsNullOrEmpty(output) && File.Exists(output))
-                    return output;
+                if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
+                {
+                    string absoluteOutput = TaskEnvironment.GetAbsolutePath(output);
+                    if (File.Exists(absoluteOutput))
+                        return absoluteOutput;
+                }
 
                 return null;
             }

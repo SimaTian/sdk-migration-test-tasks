@@ -1,5 +1,6 @@
 // ProcessTerminator - Terminates the current process during cleanup
 using System.Diagnostics;
+using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -12,6 +13,16 @@ namespace SdkTasks.Tools
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             Log.LogMessage(MessageImportance.Normal, "Performing cleanup operations...");
 
             var currentProcess = Process.GetCurrentProcess();

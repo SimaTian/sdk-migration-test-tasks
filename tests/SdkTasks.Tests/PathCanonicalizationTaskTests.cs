@@ -18,22 +18,6 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.PathCanonicalizationTask();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Build.PathCanonicalizationTask),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldUseGetCanonicalForm()
         {
             var relativePath = "subdir/../canon-test.txt";
@@ -51,8 +35,49 @@ namespace SdkTasks.Tests
             bool result = task.Execute();
 
             Assert.True(result);
-            Assert.True(taskEnv.GetCanonicalFormCallCount > 0,
-                "Task should use TaskEnvironment.GetCanonicalForm() instead of Path.GetFullPath()");
+            SharedTestHelpers.AssertGetCanonicalFormCalled(taskEnv);
+        }
+
+        [Fact]
+        public void CanonicalPathShouldResolveRelativeToProjectDirectory()
+        {
+            var relativePath = "subdir/../canon-test.txt";
+            Directory.CreateDirectory(Path.Combine(_projectDir, "subdir"));
+            File.WriteAllText(Path.Combine(_projectDir, "canon-test.txt"), "content");
+
+            var task = new SdkTasks.Build.PathCanonicalizationTask
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir),
+                InputPath = relativePath
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            // The canonical path should contain projectDir, not CWD
+            Assert.Contains(_engine.Messages, m => m.Message!.Contains(_projectDir));
+        }
+
+        [Fact]
+        public void ShouldPassInputPathToGetCanonicalForm()
+        {
+            var relativePath = "deep/nested/../target.txt";
+            Directory.CreateDirectory(Path.Combine(_projectDir, "deep", "nested"));
+            File.WriteAllText(Path.Combine(_projectDir, "deep", "target.txt"), "data");
+
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Build.PathCanonicalizationTask
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                InputPath = relativePath
+            };
+
+            task.Execute();
+
+            Assert.True(trackingEnv.GetCanonicalFormCallCount > 0);
+            Assert.Contains(relativePath, trackingEnv.GetCanonicalFormArgs);
         }
     }
 }

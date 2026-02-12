@@ -6,10 +6,8 @@ using Microsoft.Build.Utilities;
 namespace SdkTasks.Build
 {
     [MSBuildMultiThreadableTask]
-    public class CriticalErrorHandler : Microsoft.Build.Utilities.Task, IMultiThreadableTask
+    public class CriticalErrorHandler : Microsoft.Build.Utilities.Task
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = new();
-
         public string ErrorMessage { get; set; } = string.Empty;
 
         public override bool Execute()

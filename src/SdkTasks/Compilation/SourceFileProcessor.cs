@@ -32,7 +32,11 @@ namespace SdkTasks.Compilation
 
         protected bool FileExists(string path)
         {
-            return !string.IsNullOrEmpty(path) && File.Exists(path);
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            string resolved = ResolvePath(path);
+            return !string.IsNullOrEmpty(resolved) && File.Exists(resolved);
         }
 
         protected virtual string ResolvePath(string path)
@@ -68,7 +72,7 @@ namespace SdkTasks.Compilation
                 if (!string.IsNullOrEmpty(projectFile))
                 {
                     TaskEnvironment.ProjectDirectory =
-                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
                 }
             }
 

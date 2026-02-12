@@ -23,6 +23,16 @@ namespace SdkTasks.Compilation
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                }
+            }
+
             if (InputFiles == null || InputFiles.Length == 0)
             {
                 Log.LogMessage(MessageImportance.Low, "No input files provided; skipping processing.");

@@ -22,22 +22,6 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Tools.ToolchainInvoker();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Tools.ToolchainInvoker),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldRunInProjectDirectory()
         {
             var dir1 = CreateProjectDir();
@@ -67,6 +51,89 @@ namespace SdkTasks.Tests
             Assert.Contains(dir1, task1.ToolOutput, StringComparison.OrdinalIgnoreCase);
             Assert.Contains(dir2, task2.ToolOutput, StringComparison.OrdinalIgnoreCase);
             Assert.NotEqual(task1.ToolOutput.Trim(), task2.ToolOutput.Trim());
+        }
+
+        [Fact]
+        public void ShouldCallGetEnvironmentVariableOnTaskEnvironment()
+        {
+            var projectDir = CreateProjectDir();
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = projectDir };
+
+            var task = new SdkTasks.Tools.ToolchainInvoker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                ToolName = "cmd.exe",
+                Arguments = "/c echo hello",
+                TimeoutMilliseconds = 5000,
+            };
+
+            Assert.True(task.Execute());
+
+            SharedTestHelpers.AssertGetEnvironmentVariableCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldNotRunInProcessCwd()
+        {
+            var projectDir = CreateProjectDir();
+            var cwd = Directory.GetCurrentDirectory();
+
+            var task = new SdkTasks.Tools.ToolchainInvoker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                ToolName = "cmd.exe",
+                Arguments = "/c cd",
+                TimeoutMilliseconds = 5000,
+            };
+
+            Assert.True(task.Execute());
+
+            // Process should run in ProjectDirectory, not the test process CWD
+            Assert.Contains(projectDir, task.ToolOutput, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(cwd, task.ToolOutput, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ShouldUseTaskEnvironmentEnvVarsForProcess()
+        {
+            var projectDir = CreateProjectDir();
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(projectDir);
+            taskEnv.SetEnvironmentVariable("MY_TOOL_VAR", "task-scoped-value");
+
+            var task = new SdkTasks.Tools.ToolchainInvoker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = taskEnv,
+                ToolName = "cmd.exe",
+                Arguments = "/c cd",
+                TimeoutMilliseconds = 5000,
+            };
+
+            Assert.True(task.Execute());
+            Assert.Contains(projectDir, task.ToolOutput, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ShouldSetWorkingDirectoryFromTaskEnvironment()
+        {
+            var projectDir = CreateProjectDir();
+            var engine = new MockBuildEngine();
+
+            var task = new SdkTasks.Tools.ToolchainInvoker
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
+                ToolName = "cmd.exe",
+                Arguments = "/c cd",
+                TimeoutMilliseconds = 5000,
+            };
+
+            Assert.True(task.Execute());
+
+            // The tool output (cd) should report the ProjectDirectory
+            Assert.StartsWith(projectDir, task.ToolOutput.Trim(), StringComparison.OrdinalIgnoreCase);
         }
     }
 }

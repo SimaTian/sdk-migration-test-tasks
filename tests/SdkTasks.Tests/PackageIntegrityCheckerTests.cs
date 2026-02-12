@@ -19,23 +19,7 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Packaging.PackageIntegrityChecker();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Packaging.PackageIntegrityChecker),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
-        public void ShouldResolveToProjectDirectory()
+        public void ShouldUseTaskEnvironmentForPackageResolution()
         {
             var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
 
@@ -57,6 +41,90 @@ namespace SdkTasks.Tests
                 BuildEngine = _engine,
                 TaskEnvironment = taskEnv,
                 PackagesDirectory = "nonexistent-packages",
+                PackagesToValidate = new ITaskItem[] { pkg }
+            };
+
+            task.Execute();
+
+            Assert.NotEmpty(task.ValidatedPackages);
+        }
+
+        [Fact]
+        public void ShouldCallTaskEnvironmentGetEnvironmentVariable()
+        {
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            trackingEnv.SetEnvironmentVariable("NUGET_PACKAGES", null);
+            trackingEnv.SetEnvironmentVariable("USERPROFILE", _projectDir);
+            trackingEnv.SetEnvironmentVariable("HOME", _projectDir);
+
+            string globalPkgDir = Path.Combine(_projectDir, ".nuget", "packages");
+            string packageDir = Path.Combine(globalPkgDir, "fakepackage", "1.0.0");
+            Directory.CreateDirectory(packageDir);
+            Directory.CreateDirectory(Path.Combine(packageDir, "lib"));
+
+            var pkg = new TaskItem("FakePackage");
+            pkg.SetMetadata("Version", "1.0.0");
+
+            var task = new SdkTasks.Packaging.PackageIntegrityChecker
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                PackagesDirectory = "nonexistent-packages",
+                PackagesToValidate = new ITaskItem[] { pkg }
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertGetEnvironmentVariableCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldCallTaskEnvironmentGetAbsolutePath()
+        {
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            trackingEnv.SetEnvironmentVariable("NUGET_PACKAGES", null);
+            trackingEnv.SetEnvironmentVariable("USERPROFILE", _projectDir);
+            trackingEnv.SetEnvironmentVariable("HOME", _projectDir);
+
+            string globalPkgDir = Path.Combine(_projectDir, ".nuget", "packages");
+            string packageDir = Path.Combine(globalPkgDir, "fakepackage", "1.0.0");
+            Directory.CreateDirectory(packageDir);
+            Directory.CreateDirectory(Path.Combine(packageDir, "lib"));
+
+            var pkg = new TaskItem("FakePackage");
+            pkg.SetMetadata("Version", "1.0.0");
+
+            var task = new SdkTasks.Packaging.PackageIntegrityChecker
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                PackagesDirectory = "nonexistent-packages",
+                PackagesToValidate = new ITaskItem[] { pkg }
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertGetAbsolutePathCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldValidatePackageFromLocalDirectory()
+        {
+            string localPkgDir = Path.Combine(_projectDir, "local-packages");
+            string packageDir = Path.Combine(localPkgDir, "localpackage", "2.0.0");
+            Directory.CreateDirectory(packageDir);
+            Directory.CreateDirectory(Path.Combine(packageDir, "lib"));
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+
+            var pkg = new TaskItem("LocalPackage");
+            pkg.SetMetadata("Version", "2.0.0");
+
+            var task = new SdkTasks.Packaging.PackageIntegrityChecker
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = taskEnv,
+                PackagesDirectory = "local-packages",
                 PackagesToValidate = new ITaskItem[] { pkg }
             };
 

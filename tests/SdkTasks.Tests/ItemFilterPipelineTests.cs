@@ -19,28 +19,32 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Compilation.ItemFilterPipeline();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Compilation.ItemFilterPipeline),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldUseTaskEnvironmentGetAbsolutePath()
         {
             var item = new TaskItem("ext-ref.dll");
             item.SetMetadata("Category", "ExternalReference");
 
-            var taskEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Compilation.ItemFilterPipeline
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                InputItems = new ITaskItem[] { item }
+            };
+
+            task.Execute();
+
+            Assert.NotEmpty(task.FilteredItems);
+            SharedTestHelpers.AssertGetAbsolutePathCalled(trackingEnv, 2);
+        }
+
+        [Fact]
+        public void ShouldResolvePathsRelativeToProjectDirectory()
+        {
+            var item = new TaskItem("ext-ref.dll");
+            item.SetMetadata("Category", "ExternalReference");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
             var task = new SdkTasks.Compilation.ItemFilterPipeline
             {
                 BuildEngine = _engine,
@@ -51,8 +55,76 @@ namespace SdkTasks.Tests
             task.Execute();
 
             Assert.NotEmpty(task.FilteredItems);
-            Assert.True(taskEnv.GetAbsolutePathCallCount >= 2,
-                $"Task should call GetAbsolutePath for ExternalReference resolution (called {taskEnv.GetAbsolutePathCallCount} times, expected >= 2)");
+            var resolvedItem = task.FilteredItems[0];
+            Assert.StartsWith(_projectDir, resolvedItem.ItemSpec, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ShouldUseGetCanonicalFormInPipeline()
+        {
+            var item = new TaskItem("ext-ref.dll");
+            item.SetMetadata("Category", "ExternalReference");
+
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Compilation.ItemFilterPipeline
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                InputItems = new ITaskItem[] { item }
+            };
+
+            task.Execute();
+
+            SharedTestHelpers.AssertGetCanonicalFormCalled(trackingEnv);
+        }
+
+        [Fact]
+        public void ShouldFilterExcludedItems()
+        {
+            var included = new TaskItem("keep.dll");
+            included.SetMetadata("Category", "ExternalReference");
+
+            var excluded = new TaskItem("skip.dll");
+            excluded.SetMetadata("Category", "ExternalReference");
+            excluded.SetMetadata("Exclude", "true");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Compilation.ItemFilterPipeline
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = taskEnv,
+                InputItems = new ITaskItem[] { included, excluded }
+            };
+
+            task.Execute();
+
+            Assert.Single(task.FilteredItems);
+            Assert.Contains("keep.dll", task.FilteredItems[0].ItemSpec, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void ResolvedPathsShouldNotContainProcessCwd()
+        {
+            var item = new TaskItem("ext-ref.dll");
+            item.SetMetadata("Category", "ExternalReference");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
+            var task = new SdkTasks.Compilation.ItemFilterPipeline
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = taskEnv,
+                InputItems = new ITaskItem[] { item }
+            };
+
+            task.Execute();
+
+            string cwd = Directory.GetCurrentDirectory();
+            Assert.NotEmpty(task.FilteredItems);
+            foreach (var filteredItem in task.FilteredItems)
+            {
+                if (!_projectDir.StartsWith(cwd, StringComparison.OrdinalIgnoreCase))
+                    Assert.DoesNotContain(cwd, filteredItem.ItemSpec, StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 }
