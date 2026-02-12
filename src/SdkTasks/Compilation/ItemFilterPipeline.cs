@@ -108,7 +108,7 @@ namespace SdkTasks.Compilation
             {
                 if (string.Equals(group.Key, "ExternalReference", StringComparison.OrdinalIgnoreCase))
                 {
-                    string resolved = Path.GetFullPath(item.Path);
+                    string resolved = TaskEnvironment.GetAbsolutePath(item.Path);
                     yield return item with { Path = resolved };
                 }
                 else

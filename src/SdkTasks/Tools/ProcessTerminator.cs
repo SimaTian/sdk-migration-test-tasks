@@ -6,8 +6,10 @@ using Microsoft.Build.Utilities;
 namespace SdkTasks.Tools
 {
     [MSBuildMultiThreadableTask]
-    public class ProcessTerminator : Microsoft.Build.Utilities.Task
+    public class ProcessTerminator : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
+
         public override bool Execute()
         {
             Log.LogMessage(MessageImportance.Normal, "Performing cleanup operations...");
@@ -15,9 +17,9 @@ namespace SdkTasks.Tools
             var currentProcess = Process.GetCurrentProcess();
             Log.LogMessage(MessageImportance.Normal, $"Current process: {currentProcess.ProcessName} (PID: {currentProcess.Id})");
 
-            Process.GetCurrentProcess().Kill();
+            Log.LogError("Cannot kill the current process in an MSBuild task. This operation is forbidden in multi-threaded builds.");
 
-            return true;
+            return false;
         }
     }
 }

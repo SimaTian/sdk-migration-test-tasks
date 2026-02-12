@@ -16,7 +16,7 @@ namespace SdkTasks.Configuration
 
         public override bool Execute()
         {
-            Environment.SetEnvironmentVariable(VariableName!, VariableValue);
+            TaskEnvironment.SetEnvironmentVariable(VariableName!, VariableValue);
             return true;
         }
     }

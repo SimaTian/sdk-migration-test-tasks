@@ -73,7 +73,7 @@ namespace SdkTasks.Compilation
 
             var result = new TaskItem(normalized);
             result.SetMetadata("OriginalPath", rawPath);
-            result.SetMetadata("Extension", extension);
+            result.SetMetadata("FileExtension", extension);
             return result;
         }
 
@@ -98,7 +98,7 @@ namespace SdkTasks.Compilation
             if (Path.IsPathRooted(path))
                 return path;
 
-            return Path.GetFullPath(path);
+            return TaskEnvironment.GetAbsolutePath(path);
         }
     }
 }

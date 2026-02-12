@@ -19,32 +19,31 @@ namespace SdkTasks.Configuration
     {
         public TaskEnvironment TaskEnvironment { get; set; } = new();
 
-        /// <summary>
-        /// Lazily resolves the SDK installation path from the environment.
-        /// </summary>
-        private readonly Lazy<string> _sdkLocation;
-
         [Required]
         public string TargetFramework { get; set; } = string.Empty;
 
         [Output]
         public ITaskItem[] FrameworkAssemblies { get; set; } = Array.Empty<ITaskItem>();
 
-        public SdkLocationProvider()
-        {
-            _sdkLocation = new Lazy<string>(() =>
-                Environment.GetEnvironmentVariable("DOTNET_ROOT") ?? FindSdkFallback());
-        }
-
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(TargetFramework))
             {
                 Log.LogError("TargetFramework must be specified.");
                 return false;
             }
 
-            string sdkRoot = _sdkLocation.Value;
+            string sdkRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT") ?? FindSdkFallback();
             if (string.IsNullOrEmpty(sdkRoot) || !Directory.Exists(sdkRoot))
             {
                 Log.LogError("Could not locate the .NET SDK. Set the DOTNET_ROOT environment variable.");
@@ -75,12 +74,12 @@ namespace SdkTasks.Configuration
             return true;
         }
 
-        private static string FindSdkFallback()
+        private string FindSdkFallback()
         {
             // Common default install locations
             string[] candidates =
             {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet"),
+                Path.Combine(TaskEnvironment.GetEnvironmentVariable("ProgramFiles") ?? string.Empty, "dotnet"),
                 "/usr/share/dotnet",
                 "/usr/local/share/dotnet",
             };
@@ -114,8 +113,8 @@ namespace SdkTasks.Configuration
         private static ITaskItem BuildAssemblyItem(string assemblyPath)
         {
             var item = new TaskItem(assemblyPath);
-            item.SetMetadata("FileName", Path.GetFileNameWithoutExtension(assemblyPath));
-            item.SetMetadata("Extension", Path.GetExtension(assemblyPath));
+            item.SetMetadata("ResolvedFileName", Path.GetFileNameWithoutExtension(assemblyPath));
+            item.SetMetadata("ResolvedExtension", Path.GetExtension(assemblyPath));
             item.SetMetadata("ResolvedFrom", "FrameworkDirectory");
             return item;
         }

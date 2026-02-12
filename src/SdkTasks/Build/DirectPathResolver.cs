@@ -19,9 +19,9 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            string resolvedPath = Path.GetFullPath(InputPath);
+            string resolvedPath = TaskEnvironment.GetAbsolutePath(InputPath);
 
-            string? configValue = Environment.GetEnvironmentVariable(EnvVarName);
+            string? configValue = TaskEnvironment.GetEnvironmentVariable(EnvVarName);
 
             if (string.IsNullOrEmpty(configValue))
             {

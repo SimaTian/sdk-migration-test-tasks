@@ -6,8 +6,10 @@ using Microsoft.Build.Utilities;
 namespace SdkTasks.Build
 {
     [MSBuildMultiThreadableTask]
-    public class CriticalErrorHandler : Microsoft.Build.Utilities.Task
+    public class CriticalErrorHandler : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
+
         public string ErrorMessage { get; set; } = string.Empty;
 
         public override bool Execute()
@@ -18,7 +20,7 @@ namespace SdkTasks.Build
             {
                 Log.LogError($"Critical error detected: {ErrorMessage}");
 
-                Environment.FailFast(ErrorMessage);
+                return false;
             }
 
             Log.LogMessage(MessageImportance.Normal, "No critical errors found.");

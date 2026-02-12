@@ -20,9 +20,10 @@ namespace SdkTasks.Build
                 return false;
             }
 
-            if (File.Exists(FilePath))
+            var absolutePath = TaskEnvironment.GetAbsolutePath(FilePath);
+            if (File.Exists(absolutePath))
             {
-                string content = File.ReadAllText(FilePath);
+                string content = File.ReadAllText(absolutePath);
                 Log.LogMessage(MessageImportance.Normal, $"File '{FilePath}' contains {content.Length} characters.");
             }
             else

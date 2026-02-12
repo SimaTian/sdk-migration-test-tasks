@@ -72,7 +72,7 @@ namespace SdkTasks.Analysis
 
             tracker.FileChanged += (sender, e) =>
             {
-                string resolvedPath = Path.GetFullPath(e.FilePath);
+                string resolvedPath = TaskEnvironment.GetAbsolutePath(e.FilePath);
 
                 lock (collectedChanges)
                 {

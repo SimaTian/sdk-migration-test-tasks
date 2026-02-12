@@ -44,7 +44,7 @@ namespace SdkTasks.Compilation
             if (Path.IsPathRooted(trimmed))
                 return trimmed;
 
-            return Path.GetFullPath(trimmed);
+            return TaskEnvironment.GetAbsolutePath(trimmed);
         }
     }
 
@@ -62,6 +62,16 @@ namespace SdkTasks.Compilation
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                }
+            }
+
             if (Sources == null || Sources.Length == 0)
             {
                 LogInfo("No sources provided.");

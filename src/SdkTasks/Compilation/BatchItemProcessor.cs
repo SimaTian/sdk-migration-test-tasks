@@ -21,7 +21,7 @@ namespace SdkTasks.Compilation
         public override bool Execute()
         {
             AbsolutePaths = RelativePaths
-                .Select(p => Path.Combine(Environment.CurrentDirectory, p))
+                .Select(p => Path.Combine(TaskEnvironment.ProjectDirectory, p))
                 .ToArray();
 
             foreach (var path in AbsolutePaths)

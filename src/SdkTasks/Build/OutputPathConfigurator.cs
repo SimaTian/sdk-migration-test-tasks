@@ -52,7 +52,10 @@ namespace SdkTasks.Build
             if (Path.IsPathRooted(normalized))
                 return normalized;
 
-            return Path.GetFullPath(normalized);
+            if (string.IsNullOrWhiteSpace(basePath))
+                return normalized;
+
+            return Path.Combine(basePath, normalized);
         }
 
         public static string CombineAndNormalize(string basePath, string relativePath)
@@ -87,9 +90,19 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             Log.LogMessage(MessageImportance.Normal, "Resolving output directories.");
 
-            string projectDir = TaskEnvironment?.ProjectDirectory ?? string.Empty;
+            string projectDir = TaskEnvironment.ProjectDirectory;
 
             ResolvedOutputDirectory = ResolveDirectory(OutputDirectory, projectDir);
             ResolvedIntermediateDirectory = !string.IsNullOrEmpty(IntermediateDirectory)
@@ -116,7 +129,7 @@ namespace SdkTasks.Build
                 return string.Empty;
             }
 
-            string resolved = PathHelpers.CombineAndNormalize(projectDir, directory);
+            string resolved = TaskEnvironment.GetAbsolutePath(directory);
             return PathHelpers.EnsureTrailingSlash(resolved);
         }
 
@@ -144,7 +157,7 @@ namespace SdkTasks.Build
                 return null;
             }
 
-            string resolvedPath = PathHelpers.CombineAndNormalize(projectDir, refPath);
+            string resolvedPath = TaskEnvironment.GetAbsolutePath(refPath);
             Log.LogMessage(MessageImportance.Low, "Reference '{0}' → '{1}'.", refPath, resolvedPath);
 
             var result = new TaskItem(resolvedPath);

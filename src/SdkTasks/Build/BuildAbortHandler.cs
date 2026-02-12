@@ -6,8 +6,10 @@ using Microsoft.Build.Utilities;
 namespace SdkTasks.Build
 {
     [MSBuildMultiThreadableTask]
-    public class BuildAbortHandler : Microsoft.Build.Utilities.Task
+    public class BuildAbortHandler : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
+
         public int ExitCode { get; set; }
 
         public override bool Execute()
@@ -18,7 +20,7 @@ namespace SdkTasks.Build
             {
                 Log.LogError($"Build failed with exit code {ExitCode}.");
 
-                Environment.Exit(ExitCode);
+                return false;
             }
 
             Log.LogMessage(MessageImportance.Normal, "Build validation passed.");

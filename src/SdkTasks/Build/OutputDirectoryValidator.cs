@@ -20,14 +20,16 @@ namespace SdkTasks.Build
                 return false;
             }
 
-            if (!Directory.Exists(DirectoryPath))
+            var absolutePath = TaskEnvironment.GetAbsolutePath(DirectoryPath);
+
+            if (!Directory.Exists(absolutePath))
             {
                 Log.LogMessage(MessageImportance.Normal, $"Creating directory '{DirectoryPath}'.");
-                Directory.CreateDirectory(DirectoryPath);
+                Directory.CreateDirectory(absolutePath);
             }
             else
             {
-                int fileCount = Directory.GetFiles(DirectoryPath).Length;
+                int fileCount = Directory.GetFiles(absolutePath).Length;
                 Log.LogMessage(MessageImportance.Normal, $"Directory '{DirectoryPath}' exists with {fileCount} file(s).");
             }
 

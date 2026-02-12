@@ -110,7 +110,7 @@ namespace SdkTasks.Build
 
             foreach (string probe in additionalProbes)
             {
-                paths.Add(Path.GetFullPath(probe));
+                paths.Add(TaskEnvironment.GetAbsolutePath(probe));
             }
 
             return paths.ToArray();
@@ -147,7 +147,7 @@ namespace SdkTasks.Build
             var item = new TaskItem(resolvedPath);
             item.SetMetadata("AssemblyName", name);
             item.SetMetadata("ResolvedFrom", _pathCache.ContainsKey(name) ? "Cache" : "Probe");
-            item.SetMetadata("Extension", Path.GetExtension(resolvedPath));
+            item.SetMetadata("FileExtension", Path.GetExtension(resolvedPath));
             return item;
         }
     }

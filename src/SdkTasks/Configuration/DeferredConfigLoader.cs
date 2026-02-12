@@ -13,7 +13,7 @@ namespace SdkTasks.Configuration
     [MSBuildMultiThreadableTask]
     public class DeferredConfigLoader : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public string ConfigurationFile { get; set; } = string.Empty;
@@ -23,15 +23,18 @@ namespace SdkTasks.Configuration
         [Output]
         public ITaskItem[] ResolvedDependencies { get; set; } = Array.Empty<ITaskItem>();
 
-        private readonly Lazy<Dictionary<string, string>> _configCache;
-        private readonly Lazy<string> _sdkRoot;
+        private Lazy<Dictionary<string, string>>? _configCache;
+        private Lazy<string>? _sdkRoot;
 
-        public DeferredConfigLoader()
+        private void EnsureLazyInitialized()
         {
-            _configCache = new Lazy<Dictionary<string, string>>(() =>
+            _configCache ??= new Lazy<Dictionary<string, string>>(() =>
             {
-                string nugetPackagesDir = Environment.GetEnvironmentVariable("NUGET_PACKAGES")
-                    ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+                string? nugetPackagesDir = TaskEnvironment.GetEnvironmentVariable("NUGET_PACKAGES")
+                    ?? Path.Combine(
+                        TaskEnvironment.GetEnvironmentVariable("USERPROFILE")
+                        ?? TaskEnvironment.GetEnvironmentVariable("HOME")
+                        ?? "", ".nuget", "packages");
 
                 string configPath = Path.Combine(nugetPackagesDir, "cache", "dependency-config.json");
                 if (!File.Exists(configPath))
@@ -43,24 +46,41 @@ namespace SdkTasks.Configuration
                 return ParseConfiguration(content);
             });
 
-            _sdkRoot = new Lazy<string>(() =>
+            _sdkRoot ??= new Lazy<string>(() =>
             {
-                string dotnetRoot = Path.GetFullPath(Environment.GetEnvironmentVariable("DOTNET_ROOT") ?? "");
+                string? dotnetRootEnv = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT");
+                if (string.IsNullOrEmpty(dotnetRootEnv))
+                {
+                    return string.Empty;
+                }
+                string dotnetRoot = TaskEnvironment.GetAbsolutePath(dotnetRootEnv);
                 return Directory.Exists(dotnetRoot) ? dotnetRoot : string.Empty;
             });
         }
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrEmpty(ConfigurationFile))
             {
                 Log.LogError("ConfigurationFile must be specified.");
                 return false;
             }
 
+            EnsureLazyInitialized();
+
             string resolvedConfigPath = TaskEnvironment.GetAbsolutePath(ConfigurationFile);
-            Dictionary<string, string> config = _configCache.Value;
-            string sdkRoot = _sdkRoot.Value;
+            Dictionary<string, string> config = _configCache!.Value;
+            string sdkRoot = _sdkRoot!.Value;
 
             string framework = TargetFramework ?? "net8.0";
             var results = new List<ITaskItem>();

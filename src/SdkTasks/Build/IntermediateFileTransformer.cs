@@ -48,9 +48,9 @@ namespace SdkTasks.Build
                     sourceContent.Length,
                     TransformName);
 
-                // Build a deterministic intermediate file path for verification.
+                // Build a deterministic, project-isolated intermediate file path.
                 intermediateFile = Path.Combine(
-                    Path.GetTempPath(),
+                    TaskEnvironment.ProjectDirectory,
                     $"msbuild_transform_{TransformName}.tmp");
 
                 // Phase 1: Apply the transformation.

@@ -14,8 +14,8 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class PathResolutionCache : MSBuildTask, IMultiThreadableTask
     {
-        // Static cache shared across all task instances, keyed by relative path.
-        private static readonly Dictionary<string, string> _pathCache = new(StringComparer.OrdinalIgnoreCase);
+        // Static cache shared across all task instances, keyed by (projectDir, relativePath).
+        private static readonly Dictionary<(string, string), string> _pathCache = new();
         private static readonly object _cacheLock = new object();
         private static int _cacheHits;
         private static int _cacheMisses;
@@ -30,6 +30,17 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (InputPaths.Length == 0)
             {
                 Log.LogMessage(MessageImportance.Low, "No input paths to resolve.");
@@ -61,8 +72,8 @@ namespace SdkTasks.Build
 
                     var item = new TaskItem(resolved);
                     item.SetMetadata("OriginalPath", inputPath);
-                    item.SetMetadata("Extension", Path.GetExtension(resolved));
-                    item.SetMetadata("Directory", Path.GetDirectoryName(resolved) ?? string.Empty);
+                    item.SetMetadata("ResolvedExtension", Path.GetExtension(resolved));
+                    item.SetMetadata("ResolvedDirectory", Path.GetDirectoryName(resolved) ?? string.Empty);
 
                     results.Add(item);
                 }
@@ -92,9 +103,11 @@ namespace SdkTasks.Build
         /// </summary>
         private string GetOrResolve(string relativePath)
         {
+            var cacheKey = (TaskEnvironment.ProjectDirectory, relativePath);
+
             lock (_cacheLock)
             {
-                if (_pathCache.TryGetValue(relativePath, out var cached))
+                if (_pathCache.TryGetValue(cacheKey, out var cached))
                 {
                     Interlocked.Increment(ref _cacheHits);
                     Log.LogMessage(MessageImportance.Low, "  Cache hit: '{0}' -> '{1}'", relativePath, cached);
@@ -103,22 +116,21 @@ namespace SdkTasks.Build
             }
 
             // Resolve the path relative to the project directory.
-            var absolutePath = Path.GetFullPath(
-                Path.Combine(TaskEnvironment.ProjectDirectory, relativePath));
+            var absolutePath = TaskEnvironment.GetCanonicalForm(relativePath);
 
             lock (_cacheLock)
             {
                 // Double-check after acquiring the lock.
-                if (!_pathCache.ContainsKey(relativePath))
+                if (!_pathCache.ContainsKey(cacheKey))
                 {
-                    _pathCache[relativePath] = absolutePath;
+                    _pathCache[cacheKey] = absolutePath;
                     Interlocked.Increment(ref _cacheMisses);
                     Log.LogMessage(MessageImportance.Low, "  Cached:    '{0}' -> '{1}'", relativePath, absolutePath);
                 }
                 else
                 {
                     // Another task already cached it — use the existing value.
-                    absolutePath = _pathCache[relativePath];
+                    absolutePath = _pathCache[cacheKey];
                     Interlocked.Increment(ref _cacheHits);
                     Log.LogMessage(MessageImportance.Low, "  Cache resolved: '{0}' -> '{1}'", relativePath, absolutePath);
                 }

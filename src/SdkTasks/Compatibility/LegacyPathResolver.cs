@@ -1,14 +1,15 @@
 // LegacyPathResolver - Resolves file paths and reads environment configuration
 using System;
-using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
 namespace SdkTasks.Compatibility
 {
     [MSBuildMultiThreadableTask]
-    public class LegacyPathResolver : Microsoft.Build.Utilities.Task
+    public class LegacyPathResolver : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
+
         [Required]
         public string InputPath { get; set; } = string.Empty;
 
@@ -17,15 +18,9 @@ namespace SdkTasks.Compatibility
 
         public override bool Execute()
         {
-            string resolvedPath = Path.GetFullPath(InputPath);
+            string resolvedPath = TaskEnvironment.GetAbsolutePath(InputPath);
 
-            if (!File.Exists(resolvedPath))
-            {
-                Log.LogMessage(MessageImportance.High, $"File not found: {resolvedPath}");
-                return true;
-            }
-
-            string? envValue = Environment.GetEnvironmentVariable(EnvVarName);
+            string? envValue = TaskEnvironment.GetEnvironmentVariable(EnvVarName);
 
             if (!string.IsNullOrEmpty(envValue))
             {

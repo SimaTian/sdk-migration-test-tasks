@@ -16,7 +16,17 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            CurrentDir = Environment.CurrentDirectory;
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
+            CurrentDir = TaskEnvironment.ProjectDirectory;
             string resolvedPath = Path.Combine(CurrentDir, "output");
             Log.LogMessage(MessageImportance.Normal, "Resolved path: {0}", resolvedPath);
             return true;

@@ -32,6 +32,16 @@ namespace SdkTasks.Tools
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(ToolName))
             {
                 Log.LogError("ToolName must be specified.");
@@ -57,7 +67,7 @@ namespace SdkTasks.Tools
             if (!exited)
             {
                 Log.LogError("Process '{0}' did not exit within {1} ms.", ToolName, TimeoutMilliseconds);
-                try { process.Kill(entireProcessTree: true); } catch { /* best effort */ }
+                try { process.Kill(); } catch { /* best effort */ }
                 return false;
             }
 
@@ -75,17 +85,17 @@ namespace SdkTasks.Tools
         /// </summary>
         private ProcessStartInfo ConfigureInvocation()
         {
-            var psi = new ProcessStartInfo(ToolName, Arguments)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8,
-            };
+            var psi = TaskEnvironment.GetProcessStartInfo();
+            psi.FileName = ToolName;
+            psi.Arguments = Arguments;
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
+            psi.StandardOutputEncoding = Encoding.UTF8;
+            psi.StandardErrorEncoding = Encoding.UTF8;
 
-            string? pathEnv = Environment.GetEnvironmentVariable("PATH");
+            string? pathEnv = TaskEnvironment.GetEnvironmentVariable("PATH");
             if (!string.IsNullOrEmpty(pathEnv))
             {
                 psi.Environment["PATH"] = pathEnv;

@@ -98,7 +98,7 @@ namespace SdkTasks.Build
                 : filePath;
 
             var result = new TaskItem(relativePath);
-            result.SetMetadata("FullPath", fullPath);
+            result.SetMetadata("ResolvedFullPath", fullPath);
             result.SetMetadata("FileHash", hash);
             result.SetMetadata("FileSize", info.Length.ToString());
             result.SetMetadata("LastWriteTime", info.LastWriteTimeUtc.ToString("o"));
@@ -107,7 +107,7 @@ namespace SdkTasks.Build
 
         private string GetWorkingDirectory()
         {
-            return Environment.CurrentDirectory;
+            return TaskEnvironment.ProjectDirectory;
         }
 
         private static string ComputeFileHash(string path)

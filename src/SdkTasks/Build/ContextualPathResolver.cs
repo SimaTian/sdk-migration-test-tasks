@@ -23,6 +23,16 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                }
+            }
+
             if (RelativePaths.Length == 0)
             {
                 Log.LogMessage(MessageImportance.Low, "No relative paths to resolve.");
@@ -30,13 +40,8 @@ namespace SdkTasks.Build
                 return true;
             }
 
-            // Set directory context for legacy path resolution behavior.
-            // Save and restore to avoid affecting other parts of the build.
-            var previousDirectory = Environment.CurrentDirectory;
             try
             {
-                Environment.CurrentDirectory = TaskEnvironment.ProjectDirectory;
-
                 Log.LogMessage(
                     MessageImportance.Normal,
                     "Resolving {0} path(s) relative to '{1}'.",
@@ -80,14 +85,10 @@ namespace SdkTasks.Build
                 Log.LogErrorFromException(ex, showStackTrace: true);
                 return false;
             }
-            finally
-            {
-                Environment.CurrentDirectory = previousDirectory;
-            }
         }
 
         /// <summary>
-        /// Resolves a single relative path to an absolute path using the current working directory.
+        /// Resolves a single relative path to an absolute path using the TaskEnvironment.
         /// </summary>
         private string? ResolvePath(string relativePath)
         {
@@ -95,8 +96,7 @@ namespace SdkTasks.Build
             {
                 var normalizedInput = relativePath.Replace('/', Path.DirectorySeparatorChar);
 
-                var absolutePath = Path.GetFullPath(normalizedInput);
-                var canonicalPath = Path.GetFullPath(absolutePath);
+                var canonicalPath = TaskEnvironment.GetCanonicalForm(normalizedInput);
 
                 Log.LogMessage(
                     MessageImportance.Low,

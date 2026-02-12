@@ -32,7 +32,7 @@ namespace SdkTasks.Analysis
 
         private string ResolvePath(string path)
         {
-            return Path.GetFullPath(path);
+            return TaskEnvironment.GetAbsolutePath(path);
         }
     }
 }

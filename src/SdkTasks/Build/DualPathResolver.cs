@@ -23,7 +23,7 @@ namespace SdkTasks.Build
         {
             var resolvedPrimary = TaskEnvironment.GetAbsolutePath(PrimaryPath);
 
-            var resolvedSecondary = Path.GetFullPath(SecondaryPath);
+            var resolvedSecondary = TaskEnvironment.GetAbsolutePath(SecondaryPath);
 
             Log.LogMessage(MessageImportance.Normal,
                 $"Primary:   {resolvedPrimary}");

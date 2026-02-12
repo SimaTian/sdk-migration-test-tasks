@@ -127,7 +127,7 @@ namespace SdkTasks.Build
             {
                 string runtimePackPath = Path.Combine(dotnetRoot, "packs",
                     "Microsoft.NETCore.App.Runtime." + rid, targetFx, "runtimes", rid, "lib", targetFx);
-                string resolvedRuntimePack = Path.GetFullPath(runtimePackPath);
+                string resolvedRuntimePack = TaskEnvironment.GetAbsolutePath(runtimePackPath);
                 paths.Add(resolvedRuntimePack);
                 Log.LogMessage(MessageImportance.Low, "Runtime pack: {0}", resolvedRuntimePack);
             }
@@ -201,13 +201,13 @@ namespace SdkTasks.Build
         {
             try
             {
-                var psi = new ProcessStartInfo("dotnet", $"resolve {assemblyName}")
-                {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                var psi = TaskEnvironment.GetProcessStartInfo();
+                psi.FileName = "dotnet";
+                psi.Arguments = $"resolve {assemblyName}";
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
 
                 using var process = Process.Start(psi);
                 if (process == null)

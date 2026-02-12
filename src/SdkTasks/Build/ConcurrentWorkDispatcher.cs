@@ -93,7 +93,7 @@ namespace SdkTasks.Build
             else if (category.Equals("ConfigPath", StringComparison.OrdinalIgnoreCase))
             {
                 // Locate tooling via environment variable as fallback
-                string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+                string? dotnetRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT");
                 if (string.IsNullOrEmpty(dotnetRoot))
                     return null;
 

@@ -12,7 +12,7 @@ namespace SdkTasks.Build
     /// <summary>
     /// Caches resolved configuration file paths across task invocations using
     /// IBuildEngine4 registered task objects. The first invocation resolves ConfigFileName
-    /// with Path.GetFullPath and stores the result. Subsequent invocations reuse the cached path.
+    /// with TaskEnvironment.GetAbsolutePath and stores the result. Subsequent invocations reuse the cached path.
     /// </summary>
     [MSBuildMultiThreadableTask]
     public class SharedBuildStateManager : Microsoft.Build.Utilities.Task, IMultiThreadableTask
@@ -32,6 +32,16 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrWhiteSpace(ConfigFileName))
             {
                 Log.LogError("ConfigFileName must be specified.");
@@ -72,9 +82,9 @@ namespace SdkTasks.Build
         /// <summary>
         /// Builds a cache key for the configuration file name.
         /// </summary>
-        private static string BuildCacheKey(string configFileName)
+        private string BuildCacheKey(string configFileName)
         {
-            return $"{CacheKeyPrefix}_{configFileName}";
+            return $"{CacheKeyPrefix}_{TaskEnvironment.ProjectDirectory}_{configFileName}";
         }
 
         /// <summary>
@@ -84,7 +94,7 @@ namespace SdkTasks.Build
         {
             var state = new CachedConfigState();
 
-            string resolvedPath = Path.GetFullPath(configFileName);
+            string resolvedPath = TaskEnvironment.GetAbsolutePath(configFileName);
             state.ResolvedPaths[configFileName] = resolvedPath;
 
             if (File.Exists(resolvedPath))

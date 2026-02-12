@@ -28,7 +28,7 @@ namespace SdkTasks.Configuration
             try
             {
                 // Read configuration from process environment.
-                var configValue = Environment.GetEnvironmentVariable(ConfigKey);
+                var configValue = TaskEnvironment.GetEnvironmentVariable(ConfigKey);
 
                 if (!ValidateConfig(configValue))
                 {
@@ -56,7 +56,7 @@ namespace SdkTasks.Configuration
                     configHash);
 
                 // Re-read the configuration to pick up any updates during execution.
-                var finalValue = Environment.GetEnvironmentVariable(ConfigKey);
+                var finalValue = TaskEnvironment.GetEnvironmentVariable(ConfigKey);
 
                 // Apply the configuration using the current value.
                 ResolvedConfig = ApplyConfiguration(finalValue ?? configValue!, resolvedPath);

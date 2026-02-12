@@ -13,7 +13,7 @@ namespace SdkTasks.Analysis
 {
     /// <summary>
     /// Monitors a directory for file changes using a static FileSystemWatcher shared
-    /// across all task instances. The watcher path is resolved with Path.GetFullPath on first
+    /// across all task instances. The watcher path is resolved with TaskEnvironment.GetAbsolutePath on first
     /// creation and reused by subsequent invocations.
     /// </summary>
     [MSBuildMultiThreadableTask]
@@ -21,9 +21,9 @@ namespace SdkTasks.Analysis
     {
         public TaskEnvironment TaskEnvironment { get; set; } = new();
 
-        private static FileSystemWatcher? _watcher;
-        private static readonly object _watcherLock = new();
-        private static readonly List<string> _detectedChanges = new();
+        private FileSystemWatcher? _watcher;
+        private readonly object _watcherLock = new();
+        private readonly List<string> _detectedChanges = new();
 
         private const int DefaultCollectionTimeoutMs = 2000;
 
@@ -70,7 +70,7 @@ namespace SdkTasks.Analysis
                     return;
                 }
 
-                string resolvedDir = Path.GetFullPath(WatchDirectory);
+                string resolvedDir = TaskEnvironment.GetAbsolutePath(WatchDirectory);
                 if (!Directory.Exists(resolvedDir))
                 {
                     Log.LogWarning("Watch directory '{0}' does not exist. Creating it.", resolvedDir);
@@ -95,7 +95,7 @@ namespace SdkTasks.Analysis
             }
         }
 
-        private static void OnFileChanged(object sender, FileSystemEventArgs e)
+        private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
             lock (_watcherLock)
             {
@@ -126,7 +126,7 @@ namespace SdkTasks.Analysis
             {
                 var item = new TaskItem(filePath);
                 item.SetMetadata("ChangeSource", "FileSystemWatcher");
-                item.SetMetadata("Directory", Path.GetDirectoryName(filePath) ?? string.Empty);
+                item.SetMetadata("ContainingDirectory", Path.GetDirectoryName(filePath) ?? string.Empty);
                 item.SetMetadata("FileName", Path.GetFileName(filePath));
                 items.Add(item);
             }
@@ -137,7 +137,7 @@ namespace SdkTasks.Analysis
         /// <summary>
         /// Disposes the static watcher. Called at build completion.
         /// </summary>
-        public static void DisposeWatcher()
+        public void DisposeWatcher()
         {
             lock (_watcherLock)
             {

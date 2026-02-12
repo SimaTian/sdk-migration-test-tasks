@@ -5,6 +5,7 @@ using Microsoft.Build.Utilities;
 
 namespace SdkTasks.Tools
 {
+    [MSBuildMultiThreadableTask]
     public class ExternalToolRunner : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
         public TaskEnvironment TaskEnvironment { get; set; } = new();
@@ -17,13 +18,13 @@ namespace SdkTasks.Tools
         {
             Log.LogMessage(MessageImportance.Normal, $"Running command: {Command} {Arguments}");
 
-            var psi = new ProcessStartInfo(Command, Arguments)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+            var psi = TaskEnvironment.GetProcessStartInfo();
+            psi.FileName = Command;
+            psi.Arguments = Arguments;
+            psi.RedirectStandardOutput = true;
+            psi.RedirectStandardError = true;
+            psi.UseShellExecute = false;
+            psi.CreateNoWindow = true;
 
             using var process = Process.Start(psi);
             if (process == null)

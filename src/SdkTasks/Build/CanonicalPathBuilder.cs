@@ -18,16 +18,12 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            var resolved = TaskEnvironment.GetAbsolutePath(InputPath);
-
-            var canonical = Path.GetFullPath(resolved);
+            var canonical = TaskEnvironment.GetCanonicalForm(InputPath);
 
             CanonicalPath = canonical;
 
             Log.LogMessage(MessageImportance.Normal,
                 $"Input:     {InputPath}");
-            Log.LogMessage(MessageImportance.Normal,
-                $"Resolved:  {resolved}");
             Log.LogMessage(MessageImportance.Normal,
                 $"Canonical: {canonical}");
 

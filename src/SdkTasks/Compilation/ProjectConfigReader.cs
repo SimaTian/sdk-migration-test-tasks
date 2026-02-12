@@ -21,13 +21,14 @@ namespace SdkTasks.Compilation
                 return false;
             }
 
-            XDocument doc = XDocument.Load(XmlPath);
+            var absolutePath = TaskEnvironment.GetAbsolutePath(XmlPath);
+            XDocument doc = XDocument.Load((string)absolutePath);
 
             int elementCount = doc.Descendants().Count();
             Log.LogMessage(MessageImportance.Normal, $"Loaded XML with {elementCount} elements from '{XmlPath}'.");
 
             doc.Root?.SetAttributeValue("processed", "true");
-            doc.Save(XmlPath);
+            doc.Save((string)absolutePath);
 
             Log.LogMessage(MessageImportance.Normal, $"Saved updated XML back to '{XmlPath}'.");
             return true;

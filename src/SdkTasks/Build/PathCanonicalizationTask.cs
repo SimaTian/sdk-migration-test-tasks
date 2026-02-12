@@ -14,17 +14,24 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrEmpty(InputPath))
             {
                 Log.LogError("InputPath is required.");
                 return false;
             }
 
-            // Resolve relative path via TaskEnvironment
-            string absolutePath = TaskEnvironment.GetAbsolutePath(InputPath);
-
-            // Normalize the path to canonical form
-            string canonicalPath = Path.GetFullPath(absolutePath);
+            // Resolve relative path and normalize to canonical form via TaskEnvironment
+            string canonicalPath = TaskEnvironment.GetCanonicalForm(InputPath);
             Log.LogMessage(MessageImportance.Normal, $"Canonical path: {canonicalPath}");
 
             if (File.Exists(canonicalPath))

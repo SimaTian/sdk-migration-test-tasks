@@ -21,9 +21,10 @@ namespace SdkTasks.Resources
                 return false;
             }
 
+            var absolutePath = TaskEnvironment.GetAbsolutePath(OutputPath);
             byte[] data = Encoding.UTF8.GetBytes("Generated output content.");
 
-            using (var stream = new FileStream(OutputPath, FileMode.Create))
+            using (var stream = new FileStream(absolutePath, FileMode.Create))
             {
                 stream.Write(data, 0, data.Length);
             }

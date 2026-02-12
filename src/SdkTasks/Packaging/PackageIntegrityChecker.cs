@@ -37,6 +37,16 @@ namespace SdkTasks.Packaging
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             try
             {
                 string resolvedPackagesDir = TaskEnvironment.GetAbsolutePath(PackagesDirectory);
@@ -211,7 +221,9 @@ namespace SdkTasks.Packaging
                 return envValue;
             }
 
-            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string userProfile = TaskEnvironment.GetEnvironmentVariable("USERPROFILE")
+                ?? TaskEnvironment.GetEnvironmentVariable("HOME")
+                ?? string.Empty;
             string defaultPath = Path.Combine(userProfile, ".nuget", "packages");
             Log.LogMessage(MessageImportance.Low,
                 "Falling back to default global packages folder: {0}", defaultPath);

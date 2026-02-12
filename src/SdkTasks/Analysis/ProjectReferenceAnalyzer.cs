@@ -172,7 +172,7 @@ namespace SdkTasks.Analysis
                     {
                         string parentDir = Path.GetDirectoryName(parentRef) ?? string.Empty;
                         string combined = Path.Combine(parentDir, transitiveRef);
-                        string resolvedTransitive = Path.GetFullPath(combined);
+                        string resolvedTransitive = TaskEnvironment.GetAbsolutePath(combined);
 
                         if (!visited.Contains(resolvedTransitive))
                         {
