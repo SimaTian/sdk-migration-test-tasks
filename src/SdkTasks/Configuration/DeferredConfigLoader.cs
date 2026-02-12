@@ -36,7 +36,8 @@ namespace SdkTasks.Configuration
                         ?? TaskEnvironment.GetEnvironmentVariable("HOME")
                         ?? "", ".nuget", "packages");
 
-                string configPath = Path.Combine(nugetPackagesDir, "cache", "dependency-config.json");
+                string absoluteNugetDir = TaskEnvironment.GetAbsolutePath(nugetPackagesDir);
+                string configPath = Path.Combine(absoluteNugetDir, "cache", "dependency-config.json");
                 if (!File.Exists(configPath))
                 {
                     return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

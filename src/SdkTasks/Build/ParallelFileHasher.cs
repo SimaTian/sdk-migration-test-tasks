@@ -34,6 +34,17 @@ namespace SdkTasks.Build
                 return true;
             }
 
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             string projectDir = TaskEnvironment.ProjectDirectory;
             Log.LogMessage(MessageImportance.Normal, $"Processing {SourceFiles.Length} files from '{projectDir}'.");
 
@@ -85,16 +96,16 @@ namespace SdkTasks.Build
 
         private ITaskItem? ProcessSingleFile(string filePath)
         {
-            string basePath = GetWorkingDirectory();
-            string fullPath = Path.IsPathRooted(filePath) ? filePath : Path.Combine(basePath, filePath);
+            string fullPath = TaskEnvironment.GetAbsolutePath(filePath);
 
             if (!File.Exists(fullPath))
                 return null;
 
             var info = new FileInfo(fullPath);
             string hash = ComputeFileHash(fullPath);
-            string relativePath = fullPath.StartsWith(basePath, StringComparison.OrdinalIgnoreCase)
-                ? fullPath.Substring(basePath.Length).TrimStart(Path.DirectorySeparatorChar)
+            string projectDir = TaskEnvironment.ProjectDirectory;
+            string relativePath = fullPath.StartsWith(projectDir, StringComparison.OrdinalIgnoreCase)
+                ? fullPath.Substring(projectDir.Length).TrimStart(Path.DirectorySeparatorChar)
                 : filePath;
 
             var result = new TaskItem(relativePath);
@@ -103,11 +114,6 @@ namespace SdkTasks.Build
             result.SetMetadata("FileSize", info.Length.ToString());
             result.SetMetadata("LastWriteTime", info.LastWriteTimeUtc.ToString("o"));
             return result;
-        }
-
-        private string GetWorkingDirectory()
-        {
-            return TaskEnvironment.ProjectDirectory;
         }
 
         private static string ComputeFileHash(string path)

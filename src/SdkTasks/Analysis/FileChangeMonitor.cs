@@ -63,6 +63,16 @@ namespace SdkTasks.Analysis
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             var patterns = SetupPatterns();
             string watchDir = TaskEnvironment.GetAbsolutePath(WatchDirectory);
             Log.LogMessage(MessageImportance.Normal, $"Watching '{watchDir}' with {patterns.Count} pattern(s).");

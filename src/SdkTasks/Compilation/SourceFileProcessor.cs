@@ -32,7 +32,11 @@ namespace SdkTasks.Compilation
 
         protected bool FileExists(string path)
         {
-            return !string.IsNullOrEmpty(path) && File.Exists(path);
+            if (string.IsNullOrEmpty(path))
+                return false;
+
+            string absolutePath = Path.IsPathRooted(path) ? path : TaskEnvironment.GetAbsolutePath(path);
+            return File.Exists(absolutePath);
         }
 
         protected virtual string ResolvePath(string path)

@@ -39,6 +39,16 @@ namespace SdkTasks.Build
         {
             try
             {
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 Log.LogMessage(MessageImportance.Normal,
                     "Resolving {0} references for {1}/{2}",
                     References.Length, TargetFramework, RuntimeIdentifier);
@@ -122,12 +132,12 @@ namespace SdkTasks.Build
                 Path.Combine("packs", $"Microsoft.NETCore.App.Ref", targetFx, "ref"));
             paths.Add(refPackPath);
 
-            string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            string? dotnetRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT");
             if (!string.IsNullOrEmpty(dotnetRoot))
             {
                 string runtimePackPath = Path.Combine(dotnetRoot, "packs",
                     "Microsoft.NETCore.App.Runtime." + rid, targetFx, "runtimes", rid, "lib", targetFx);
-                string resolvedRuntimePack = Path.GetFullPath(runtimePackPath);
+                string resolvedRuntimePack = TaskEnvironment.GetAbsolutePath(runtimePackPath);
                 paths.Add(resolvedRuntimePack);
                 Log.LogMessage(MessageImportance.Low, "Runtime pack: {0}", resolvedRuntimePack);
             }

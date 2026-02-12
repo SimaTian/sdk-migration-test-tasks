@@ -1,5 +1,6 @@
 // ExternalToolRunner - Runs external command-line tools during the build
 using System.Diagnostics;
+using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -16,6 +17,17 @@ namespace SdkTasks.Tools
 
         public override bool Execute()
         {
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             Log.LogMessage(MessageImportance.Normal, $"Running command: {Command} {Arguments}");
 
             var psi = TaskEnvironment.GetProcessStartInfo();

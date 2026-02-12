@@ -27,6 +27,17 @@ namespace SdkTasks.Configuration
         {
             try
             {
+                // Auto-initialize ProjectDirectory from BuildEngine when not explicitly set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 // Read configuration from process environment.
                 var configValue = TaskEnvironment.GetEnvironmentVariable(ConfigKey);
 

@@ -31,6 +31,17 @@ namespace SdkTasks.Build
                 return true;
             }
 
+            // Auto-initialize ProjectDirectory from BuildEngine when not explicitly set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             string projectDir = TaskEnvironment.ProjectDirectory;
             Log.LogMessage(MessageImportance.Normal, $"Queuing {WorkItems.Length} work items from '{projectDir}'.");
 

@@ -216,15 +216,20 @@ namespace SdkTasks.Packaging
             string? envValue = TaskEnvironment.GetEnvironmentVariable("NUGET_PACKAGES");
             if (!string.IsNullOrEmpty(envValue))
             {
+                string resolvedEnvPath = TaskEnvironment.GetAbsolutePath(envValue);
                 Log.LogMessage(MessageImportance.Low,
-                    "Using NUGET_PACKAGES environment variable: {0}", envValue);
-                return envValue;
+                    "Using NUGET_PACKAGES environment variable: {0}", resolvedEnvPath);
+                return resolvedEnvPath;
             }
 
             string userProfile = TaskEnvironment.GetEnvironmentVariable("USERPROFILE")
                 ?? TaskEnvironment.GetEnvironmentVariable("HOME")
                 ?? string.Empty;
             string defaultPath = Path.Combine(userProfile, ".nuget", "packages");
+            if (!string.IsNullOrEmpty(defaultPath))
+            {
+                defaultPath = TaskEnvironment.GetAbsolutePath(defaultPath);
+            }
             Log.LogMessage(MessageImportance.Low,
                 "Falling back to default global packages folder: {0}", defaultPath);
             return defaultPath;

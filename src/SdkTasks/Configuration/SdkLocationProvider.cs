@@ -33,7 +33,7 @@ namespace SdkTasks.Configuration
                 if (!string.IsNullOrEmpty(projectFile))
                 {
                     TaskEnvironment.ProjectDirectory =
-                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                        Path.GetDirectoryName(projectFile) ?? string.Empty;
                 }
             }
 
@@ -44,6 +44,10 @@ namespace SdkTasks.Configuration
             }
 
             string sdkRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT") ?? FindSdkFallback();
+            if (!string.IsNullOrEmpty(sdkRoot))
+            {
+                sdkRoot = TaskEnvironment.GetAbsolutePath(sdkRoot);
+            }
             if (string.IsNullOrEmpty(sdkRoot) || !Directory.Exists(sdkRoot))
             {
                 Log.LogError("Could not locate the .NET SDK. Set the DOTNET_ROOT environment variable.");
@@ -84,7 +88,10 @@ namespace SdkTasks.Configuration
                 "/usr/local/share/dotnet",
             };
 
-            return candidates.FirstOrDefault(Directory.Exists) ?? string.Empty;
+            return candidates
+                .Where(c => !string.IsNullOrEmpty(c))
+                .Select(c => TaskEnvironment.GetAbsolutePath(c))
+                .FirstOrDefault(Directory.Exists) ?? string.Empty;
         }
 
         /// <summary>

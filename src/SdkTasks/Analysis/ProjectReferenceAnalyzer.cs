@@ -35,6 +35,17 @@ namespace SdkTasks.Analysis
         {
             try
             {
+                // Auto-initialize ProjectDirectory from BuildEngine when not explicitly set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 string absolutePath = TaskEnvironment.GetAbsolutePath(ProjectFilePath);
                 Log.LogMessage(MessageImportance.Normal, "Analyzing project: {0}", absolutePath);
 

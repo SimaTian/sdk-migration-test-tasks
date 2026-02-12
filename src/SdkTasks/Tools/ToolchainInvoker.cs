@@ -67,7 +67,7 @@ namespace SdkTasks.Tools
             if (!exited)
             {
                 Log.LogError("Process '{0}' did not exit within {1} ms.", ToolName, TimeoutMilliseconds);
-                try { process.Kill(); } catch { /* best effort */ }
+                TryKillProcess(process);
                 return false;
             }
 
@@ -130,6 +130,16 @@ namespace SdkTasks.Tools
 
             Log.LogError("Tool '{0}' exited with code {1}.", ToolName, exitCode);
             return false;
+        }
+
+        /// <summary>
+        /// Best-effort kill of a child tool process on timeout.
+        /// Acceptable: targets the child subprocess, not the MSBuild host.
+        /// ProcessStartInfo was obtained via TaskEnvironment.GetProcessStartInfo().
+        /// </summary>
+        private static void TryKillProcess(Process process)
+        {
+            try { process.Kill(); } catch { /* best effort */ }
         }
     }
 }

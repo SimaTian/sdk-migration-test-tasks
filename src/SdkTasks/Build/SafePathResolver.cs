@@ -16,17 +16,17 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            string resolved;
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
 
-            // Resolve with fallback logic
-            if (TaskEnvironment != null)
-            {
-                resolved = Path.GetFullPath(InputPath);
-            }
-            else
-            {
-                resolved = Path.GetFullPath(InputPath);
-            }
+            string resolved = TaskEnvironment.GetAbsolutePath(InputPath);
 
             if (File.Exists(resolved))
             {

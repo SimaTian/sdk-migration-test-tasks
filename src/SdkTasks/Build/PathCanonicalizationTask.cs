@@ -31,7 +31,7 @@ namespace SdkTasks.Build
             }
 
             // Resolve relative path and normalize to canonical form
-            string canonicalPath = Path.GetFullPath(InputPath);
+            string canonicalPath = TaskEnvironment.GetCanonicalForm(InputPath);
             Log.LogMessage(MessageImportance.Normal, $"Canonical path: {canonicalPath}");
 
             if (File.Exists(canonicalPath))

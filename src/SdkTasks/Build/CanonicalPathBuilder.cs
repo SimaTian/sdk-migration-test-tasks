@@ -18,9 +18,20 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            // Resolve input path to canonical form
-            var resolved = Path.GetFullPath(InputPath);
-            var canonical = Path.GetFullPath(resolved);
+            // Defensive ProjectDirectory initialization
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
+            // Resolve input path via TaskEnvironment (project-relative, not CWD-relative)
+            var resolved = TaskEnvironment.GetAbsolutePath(InputPath);
+            var canonical = TaskEnvironment.GetCanonicalForm(resolved);
 
             CanonicalPath = canonical;
 
