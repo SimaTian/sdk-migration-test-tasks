@@ -6,20 +6,16 @@ namespace SdkTasks.Tests
 {
     public class ConfigurationValidatorTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
         private readonly List<string> _envVarsToClean = new();
 
-        private string CreateProjectDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public ConfigurationValidatorTests() => _ctx = new TaskTestContext();
+
+        private string CreateProjectDir() => _ctx.CreateAdditionalProjectDir();
 
         public void Dispose()
         {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
+            _ctx.Dispose();
             foreach (var name in _envVarsToClean)
                 Environment.SetEnvironmentVariable(name, null);
         }
@@ -83,8 +79,7 @@ namespace SdkTasks.Tests
             Assert.True(task.Execute());
 
             // Task must read env vars through TaskEnvironment, not System.Environment
-            Assert.True(tracking.GetEnvironmentVariableCallCount >= 1,
-                "Task should call TaskEnvironment.GetEnvironmentVariable at least once.");
+            SharedTestHelpers.AssertMinimumGetEnvironmentVariableCalls(tracking, 1);
             Assert.Contains("trackedValue", task.ResolvedConfig);
         }
 

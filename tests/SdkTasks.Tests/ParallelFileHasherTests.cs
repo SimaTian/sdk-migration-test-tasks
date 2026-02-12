@@ -7,16 +7,12 @@ namespace SdkTasks.Tests
 {
     public class ParallelFileHasherTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public ParallelFileHasherTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public ParallelFileHasherTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldResolveToProjectDirectory()
@@ -82,15 +78,7 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.NotEmpty(task.ProcessedFiles);
             string resolvedFullPath = task.ProcessedFiles[0].GetMetadata("ResolvedFullPath");
-            // Path must be under the project directory, not the process CWD
-            SharedTestHelpers.AssertPathUnderProjectDir(_projectDir, resolvedFullPath);
-            // And must NOT start with the process CWD (which differs from _projectDir)
-            string cwd = Directory.GetCurrentDirectory();
-            if (!cwd.Equals(_projectDir, StringComparison.OrdinalIgnoreCase))
-            {
-                Assert.False(resolvedFullPath.StartsWith(cwd, StringComparison.OrdinalIgnoreCase),
-                    "Resolved path must not be relative to process CWD");
-            }
+            SharedTestHelpers.AssertNotResolvedToCwd(resolvedFullPath, _projectDir);
         }
 
         [Fact]
@@ -148,8 +136,7 @@ namespace SdkTasks.Tests
             bool result = task.Execute();
 
             Assert.True(result);
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                "Task must call TaskEnvironment.GetAbsolutePath for each file even in parallel mode");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
         }
 
         [Fact]

@@ -17,7 +17,7 @@ namespace SdkTasks.Diagnostics
         public override bool Execute()
         {
             Log.LogWarning("Interactive console input is not supported in multithreaded builds");
-            UserInput = string.Empty;
+            UserInput = DefaultInput ?? string.Empty;
             return true;
         }
     }

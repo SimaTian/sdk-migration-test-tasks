@@ -7,16 +7,12 @@ namespace SdkTasks.Tests
 {
     public class SourceFileProcessorTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public SourceFileProcessorTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public SourceFileProcessorTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldResolveToProjectDirectory()

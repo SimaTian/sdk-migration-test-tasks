@@ -6,16 +6,12 @@ namespace SdkTasks.Tests
 {
     public class DualPathResolverTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public DualPathResolverTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public DualPathResolverTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldResolveBothPathsToProjectDirectory()
@@ -90,8 +86,7 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.True(task.FilesMatch);
             // Confirm TaskEnvironment was used (not direct Path.GetFullPath)
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2);
-        }
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);        }
 
         [Fact]
         public void ShouldReturnFalseFilesMatchWhenContentDiffers()

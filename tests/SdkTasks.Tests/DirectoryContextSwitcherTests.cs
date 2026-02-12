@@ -6,14 +6,11 @@ namespace SdkTasks.Tests
 {
     public class DirectoryContextSwitcherTests : IDisposable
     {
-        private readonly string _projectDir;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
 
-        public DirectoryContextSwitcherTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public DirectoryContextSwitcherTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldNotModifyGlobalCwd()

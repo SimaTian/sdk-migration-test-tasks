@@ -21,7 +21,7 @@ namespace SdkTasks.Build
                 if (!string.IsNullOrEmpty(projectFile))
                 {
                     TaskEnvironment.ProjectDirectory =
-                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                        Path.GetDirectoryName(TaskEnvironment.GetCanonicalForm(projectFile)) ?? string.Empty;
                 }
             }
 

@@ -6,20 +6,13 @@ namespace SdkTasks.Tests
 {
     public class PathResolutionCacheTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
 
-        private string CreateProjectDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public PathResolutionCacheTests() => _ctx = new TaskTestContext();
 
-        public void Dispose()
-        {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
-        }
+        private string CreateProjectDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldResolveToOwnProjectDirectory()
@@ -184,8 +177,7 @@ namespace SdkTasks.Tests
 
             Assert.True(task.Execute());
 
-            Assert.True(tracking.GetCanonicalFormCallCount >= 2,
-                "Task must call GetCanonicalForm for each input path");
+            SharedTestHelpers.AssertMinimumGetCanonicalFormCalls(tracking, 2);
             Assert.Contains("first.cs", tracking.GetCanonicalFormArgs);
             Assert.Contains("second.cs", tracking.GetCanonicalFormArgs);
         }

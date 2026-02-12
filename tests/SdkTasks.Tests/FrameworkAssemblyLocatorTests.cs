@@ -7,16 +7,12 @@ namespace SdkTasks.Tests
 {
     public class FrameworkAssemblyLocatorTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public FrameworkAssemblyLocatorTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public FrameworkAssemblyLocatorTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldUseTaskEnvironmentForRuntimePackResolution()
@@ -102,8 +98,7 @@ namespace SdkTasks.Tests
             Assert.NotEmpty(task.ResolvedReferences);
             string resolvedPath = task.ResolvedReferences[0].GetMetadata("ResolvedPath");
             Assert.Contains(_projectDir, resolvedPath, StringComparison.OrdinalIgnoreCase);
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                "Task should call TaskEnvironment.GetAbsolutePath for FrameworkDirectories and refPackPath");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
         }
 
         [Fact]
@@ -212,8 +207,7 @@ namespace SdkTasks.Tests
             Assert.NotEmpty(task.ResolvedReferences);
             string resolvedPath = task.ResolvedReferences[0].GetMetadata("ResolvedPath");
             Assert.Contains(_projectDir, resolvedPath, StringComparison.OrdinalIgnoreCase);
-            Assert.True(trackingEnv.GetEnvironmentVariableCallCount >= 2,
-                "Task should call TaskEnvironment.GetEnvironmentVariable for DOTNET_ROOT and FRAMEWORK_REFERENCE_PATH");
+            SharedTestHelpers.AssertMinimumGetEnvironmentVariableCalls(trackingEnv, 2);
         }
     }
 }

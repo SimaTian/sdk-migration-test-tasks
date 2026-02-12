@@ -8,7 +8,7 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class CanonicalPathBuilder : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public string InputPath { get; set; } = string.Empty;

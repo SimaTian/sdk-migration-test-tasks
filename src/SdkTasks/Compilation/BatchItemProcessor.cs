@@ -10,7 +10,7 @@ namespace SdkTasks.Compilation
     [MSBuildMultiThreadableTask]
     public class BatchItemProcessor : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public string[] RelativePaths { get; set; } = Array.Empty<string>();

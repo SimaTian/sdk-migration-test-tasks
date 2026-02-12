@@ -6,20 +6,13 @@ namespace SdkTasks.Tests
 {
     public class SdkLocationProviderTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
 
-        private string CreateProjectDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public SdkLocationProviderTests() => _ctx = new TaskTestContext();
 
-        public void Dispose()
-        {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
-        }
+        private string CreateProjectDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldUseTaskEnvironment()
@@ -235,12 +228,81 @@ namespace SdkTasks.Tests
             Assert.NotNull(taskEnv.ProjectDirectory);
         }
 
+        [Fact]
+        public void ShouldLogError_WhenSdkRootDoesNotExist()
+        {
+            var dir = CreateProjectDir();
+
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(dir);
+            tracking.SetEnvironmentVariable("DOTNET_ROOT", Path.Combine(dir, "nonexistent-sdk"));
+
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Configuration.SdkLocationProvider
+            {
+                BuildEngine = engine,
+                TaskEnvironment = tracking,
+                TargetFramework = "net8.0",
+            };
+
+            Assert.False(task.Execute());
+            Assert.Contains(engine.Errors, e => e.Message!.Contains("Could not locate"));
+        }
+
+        [Fact]
+        public void ShouldReturnEmptyWithWarning_WhenTfmNotFound()
+        {
+            var dir = CreateProjectDir();
+            var sdkPath = CreateFakeSdk(dir, "dotnet");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(dir);
+            taskEnv.SetEnvironmentVariable("DOTNET_ROOT", sdkPath);
+
+            var engine = new MockBuildEngine();
+            var task = new SdkTasks.Configuration.SdkLocationProvider
+            {
+                BuildEngine = engine,
+                TaskEnvironment = taskEnv,
+                TargetFramework = "net99.0",
+            };
+
+            Assert.True(task.Execute());
+            Assert.Empty(task.FrameworkAssemblies);
+            Assert.Contains(engine.Warnings, w => w.Message!.Contains("No framework assemblies found"));
+        }
+
+        [Fact]
+        public void ShouldSetCorrectMetadata_OnFrameworkAssemblies()
+        {
+            var dir = CreateProjectDir();
+            var sdkPath = CreateFakeSdk(dir, "dotnet");
+
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(dir);
+            taskEnv.SetEnvironmentVariable("DOTNET_ROOT", sdkPath);
+
+            var task = new SdkTasks.Configuration.SdkLocationProvider
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = taskEnv,
+                TargetFramework = "net8.0",
+            };
+
+            Assert.True(task.Execute());
+
+            foreach (var item in task.FrameworkAssemblies)
+            {
+                Assert.Equal(".dll", item.GetMetadata("ResolvedExtension"));
+                Assert.Equal("FrameworkDirectory", item.GetMetadata("ResolvedFrom"));
+                Assert.False(string.IsNullOrEmpty(item.GetMetadata("ResolvedFileName")));
+            }
+        }
+
         private string CreateFakeSdk(string parentDir, string name)
         {
             var sdkRoot = Path.Combine(parentDir, name);
             var refDir = Path.Combine(sdkRoot, "packs", "Microsoft.NETCore.App.Ref", "8.0.0", "ref", "net8.0");
             Directory.CreateDirectory(refDir);
             File.WriteAllText(Path.Combine(refDir, "System.Runtime.dll"), "fake");
+            File.WriteAllText(Path.Combine(refDir, "System.Collections.dll"), "fake");
             return sdkRoot;
         }
     }

@@ -10,16 +10,12 @@ namespace SdkTasks.Tests
 {
     public class DeferredConfigLoaderTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public DeferredConfigLoaderTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public DeferredConfigLoaderTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldUseTaskEnvironment()
@@ -79,8 +75,7 @@ namespace SdkTasks.Tests
             task.Execute();
 
             // Task should read env vars through TaskEnvironment, not System.Environment
-            Assert.True(trackingEnv.GetEnvironmentVariableCallCount >= 2,
-                $"Expected at least 2 GetEnvironmentVariable calls, got {trackingEnv.GetEnvironmentVariableCallCount}");
+            SharedTestHelpers.AssertMinimumGetEnvironmentVariableCalls(trackingEnv, 2);
         }
 
         [Fact]
@@ -110,8 +105,7 @@ namespace SdkTasks.Tests
             task.Execute();
 
             // Task should resolve paths through TaskEnvironment.GetAbsolutePath
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 1,
-                $"Expected at least 1 GetAbsolutePath call, got {trackingEnv.GetAbsolutePathCallCount}");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 1);
         }
 
         [Fact]

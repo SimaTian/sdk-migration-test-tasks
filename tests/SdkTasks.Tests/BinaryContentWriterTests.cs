@@ -6,16 +6,12 @@ namespace SdkTasks.Tests
 {
     public class BinaryContentWriterTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public BinaryContentWriterTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public BinaryContentWriterTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldWriteToProjectDirectory()
@@ -60,6 +56,47 @@ namespace SdkTasks.Tests
             var cwdPath = Path.Combine(Directory.GetCurrentDirectory(), "subdir", "output.bin");
             Assert.False(File.Exists(cwdPath),
                 "Output file must NOT be written under CWD");
+        }
+
+        [Fact]
+        public void BinaryContentWriter_UsesGetAbsolutePath_NotForbiddenApis()
+        {
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Resources.BinaryContentWriter
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                OutputPath = "tracked.bin"
+            };
+
+            var result = task.Execute();
+
+            Assert.True(result);
+            Assert.True(trackingEnv.GetAbsolutePathCallCount > 0,
+                "Task must call TaskEnvironment.GetAbsolutePath instead of using Path.GetFullPath or relative paths directly");
+            Assert.Contains("tracked.bin", trackingEnv.GetAbsolutePathArgs);
+        }
+
+        [Fact]
+        public void BinaryContentWriter_GetAbsolutePath_ResolvesRelativeToProjectDir()
+        {
+            var trackingEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Resources.BinaryContentWriter
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = trackingEnv,
+                OutputPath = "resolve-test.bin"
+            };
+
+            task.Execute();
+
+            var expectedPath = Path.Combine(_projectDir, "resolve-test.bin");
+            Assert.True(File.Exists(expectedPath),
+                $"GetAbsolutePath should resolve relative to ProjectDirectory '{_projectDir}', not CWD");
+
+            var cwdPath = Path.Combine(Directory.GetCurrentDirectory(), "resolve-test.bin");
+            Assert.False(File.Exists(cwdPath),
+                "File must NOT be created under process CWD");
         }
 
         [Fact]

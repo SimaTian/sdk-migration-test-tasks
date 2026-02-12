@@ -10,16 +10,12 @@ namespace SdkTasks.Tests
 {
     public class FileChangeMonitorTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public FileChangeMonitorTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public FileChangeMonitorTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void Execute_WithRelativeWatchDir_ShouldResolveToProjectDirectory()
@@ -87,8 +83,7 @@ namespace SdkTasks.Tests
 
             Assert.True(result);
             // At least 2 calls: one for WatchDirectory, one for the changed file in the event handler
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                $"Expected at least 2 GetAbsolutePath calls (WatchDirectory + event handler), got {trackingEnv.GetAbsolutePathCallCount}");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
         }
 
         [Fact]

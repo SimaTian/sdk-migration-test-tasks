@@ -1,31 +1,27 @@
+using System;
+using System.IO;
 using Xunit;
 using Microsoft.Build.Framework;
+using SdkTasks.Diagnostics;
 using SdkTasks.Tests.Infrastructure;
 
 namespace SdkTasks.Tests
 {
     public class DiagnosticLoggerTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
 
-        private string CreateTempDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public DiagnosticLoggerTests() => _ctx = new TaskTestContext();
 
-        public void Dispose()
-        {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
-        }
+        private string CreateTempDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldWriteToBuildEngineNotConsole()
         {
             var engine = new MockBuildEngine();
-            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            var task = new DiagnosticLogger
             {
                 BuildEngine = engine,
                 TaskEnvironment = TaskEnvironmentHelper.CreateForTest(),
@@ -58,17 +54,31 @@ namespace SdkTasks.Tests
         {
             var projectDir = CreateTempDir();
             var engine = new MockBuildEngine();
-            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            var task = new DiagnosticLogger
             {
                 BuildEngine = engine,
                 TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir),
                 Message = "Logging from non-CWD project"
             };
 
-            bool result = task.Execute();
+            var originalOut = Console.Out;
+            try
+            {
+                using var sw = new StringWriter();
+                Console.SetOut(sw);
 
-            Assert.True(result);
-            Assert.Contains(engine.Messages, m => m.Message!.Contains("Logging from non-CWD project"));
+                bool result = task.Execute();
+
+                Assert.True(result);
+                // Output should go to build engine, not Console, even from non-CWD dir
+                string consoleOutput = sw.ToString();
+                Assert.DoesNotContain("Logging from non-CWD project", consoleOutput);
+                Assert.Contains(engine.Messages, m => m.Message!.Contains("Logging from non-CWD project"));
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+            }
         }
 
         [Fact]
@@ -77,7 +87,7 @@ namespace SdkTasks.Tests
             var projectDir = CreateTempDir();
             var trackingEnv = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
             var engine = new MockBuildEngine();
-            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            var task = new DiagnosticLogger
             {
                 BuildEngine = engine,
                 TaskEnvironment = trackingEnv,
@@ -95,7 +105,7 @@ namespace SdkTasks.Tests
         public void ShouldLogEmptyMessageWhenMessageIsNull()
         {
             var engine = new MockBuildEngine();
-            var task = new SdkTasks.Diagnostics.DiagnosticLogger
+            var task = new DiagnosticLogger
             {
                 BuildEngine = engine,
                 TaskEnvironment = TaskEnvironmentHelper.CreateForTest(),
@@ -105,6 +115,8 @@ namespace SdkTasks.Tests
             bool result = task.Execute();
 
             Assert.True(result);
+            Assert.Contains(engine.Messages, m => m.Message == string.Empty);
         }
+
     }
 }

@@ -14,16 +14,12 @@ namespace SdkTasks.Tests
 {
     public class ProjectReferenceAnalyzerTests : IDisposable
     {
-        private readonly string _tempDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _tempDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public ProjectReferenceAnalyzerTests()
-        {
-            _tempDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_tempDir);
+        public ProjectReferenceAnalyzerTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void Execute_TransitiveReferences_ResolveToProjectDirectory()
@@ -170,8 +166,7 @@ namespace SdkTasks.Tests
             Assert.NotEmpty(task.AnalyzedReferences);
 
             // GetAbsolutePath should be called for both the project file and its references
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                "Task should call GetAbsolutePath for both the project file and its references");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
 
             // The project reference should resolve under _tempDir, not CWD
             var projRef = task.AnalyzedReferences.FirstOrDefault(

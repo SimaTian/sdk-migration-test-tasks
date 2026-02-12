@@ -1,93 +1,103 @@
 using Xunit;
 using Microsoft.Build.Framework;
+using SdkTasks.Build;
 using SdkTasks.Tests.Infrastructure;
 
 namespace SdkTasks.Tests
 {
     public class WorkingDirectoryResolverTests : IDisposable
     {
-        private readonly string _projectDir;
+        private readonly TaskTestContext _ctx;
 
-        public WorkingDirectoryResolverTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-        }
+        public WorkingDirectoryResolverTests() => _ctx = new TaskTestContext();
 
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        private string CreateTempDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
-        public void ShouldReadProjectDirectory()
+        public void Execute_ShouldReturnProjectDirectory_NotProcessCwd()
         {
-            var task = new SdkTasks.Build.WorkingDirectoryResolver
+            var projectDir = CreateTempDir();
+
+            var task = new WorkingDirectoryResolver
             {
                 BuildEngine = new MockBuildEngine(),
-                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir)
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir)
             };
 
-            task.Execute();
+            bool result = task.Execute();
 
-            Assert.Equal(_projectDir, task.CurrentDir);
+            // Assert CORRECT behavior: task should return ProjectDirectory, not process CWD
+            Assert.True(result);
+            Assert.Equal(projectDir, task.CurrentDir);
+            Assert.NotEqual(Directory.GetCurrentDirectory(), task.CurrentDir);
         }
 
         [Fact]
-        public void ShouldNotReturnProcessCwd()
+        public void Execute_ShouldResolveOutputPathRelativeToProjectDirectory()
         {
-            // ProjectDirectory is a temp dir different from process CWD
-            var task = new SdkTasks.Build.WorkingDirectoryResolver
-            {
-                BuildEngine = new MockBuildEngine(),
-                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir)
-            };
-
-            task.Execute();
-
-            // CurrentDir must be ProjectDirectory, not the process working directory
-            Assert.NotEqual(Environment.CurrentDirectory, task.CurrentDir);
-        }
-
-        [Fact]
-        public void ResolvedPathShouldBeUnderProjectDirectory()
-        {
+            var projectDir = CreateTempDir();
             var engine = new MockBuildEngine();
 
-            var task = new SdkTasks.Build.WorkingDirectoryResolver
+            var task = new WorkingDirectoryResolver
             {
                 BuildEngine = engine,
-                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir)
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir)
             };
 
-            task.Execute();
+            bool result = task.Execute();
 
-            // The task combines CurrentDir with "output"; verify log message contains ProjectDirectory
-            var loggedPath = Path.Combine(_projectDir, "output");
-            Assert.Contains(loggedPath, engine.Messages.Select(m => m.Message).FirstOrDefault() ?? "",
-                StringComparison.OrdinalIgnoreCase);
+            // Assert CORRECT behavior: resolved path logged should be under ProjectDirectory
+            Assert.True(result);
+            var expectedOutputPath = Path.Combine(projectDir, "output");
+            Assert.Contains(engine.Messages, m => m.Message!.Contains(expectedOutputPath));
         }
 
         [Fact]
-        public void Execute_WithTrackingEnvironment_UsesTaskEnvironment()
+        public void Execute_ShouldNotModifyProcessCwd()
         {
-            var trackingEnv = SharedTestHelpers.CreateTrackingEnvironment(_projectDir);
+            var projectDir = CreateTempDir();
+            var originalCwd = Environment.CurrentDirectory;
 
-            var task = new SdkTasks.Build.WorkingDirectoryResolver
+            var task = new WorkingDirectoryResolver
             {
                 BuildEngine = new MockBuildEngine(),
-                TaskEnvironment = trackingEnv
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir)
             };
 
             task.Execute();
 
-            // Task should use TaskEnvironment.ProjectDirectory rather than Environment.CurrentDirectory
-            Assert.Equal(_projectDir, task.CurrentDir);
+            // Assert CORRECT behavior: process CWD should be unchanged
+            Assert.Equal(originalCwd, Environment.CurrentDirectory);
         }
 
         [Fact]
-        public void Execute_AutoInitializesProjectDirectory_FromBuildEngine()
+        public void Execute_WithTrackingEnvironment_UsesProjectDirectoryProperty()
+        {
+            var projectDir = CreateTempDir();
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+
+            var task = new WorkingDirectoryResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking
+            };
+
+            bool result = task.Execute();
+
+            // Task should use TaskEnvironment.ProjectDirectory rather than Environment.CurrentDirectory
+            Assert.True(result);
+            Assert.Equal(projectDir, task.CurrentDir);
+        }
+
+        [Fact]
+        public void Execute_AutoInitializesProjectDirectory_WhenEmpty()
         {
             // When ProjectDirectory is empty, the task should auto-initialize from BuildEngine
-            var taskEnv = TaskEnvironmentHelper.CreateForTest("");
+            var taskEnv = TaskEnvironmentHelper.CreateForTest(string.Empty);
 
-            var task = new SdkTasks.Build.WorkingDirectoryResolver
+            var task = new WorkingDirectoryResolver
             {
                 BuildEngine = new MockBuildEngine(),
                 TaskEnvironment = taskEnv
@@ -97,6 +107,23 @@ namespace SdkTasks.Tests
 
             // ProjectDirectory should have been set from BuildEngine.ProjectFileOfTaskNode
             Assert.False(string.IsNullOrEmpty(task.CurrentDir));
+        }
+
+        [Fact]
+        public void Execute_LogsResolvedPath()
+        {
+            var projectDir = CreateTempDir();
+            var engine = new MockBuildEngine();
+
+            var task = new WorkingDirectoryResolver
+            {
+                BuildEngine = engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(projectDir)
+            };
+
+            task.Execute();
+
+            Assert.Contains(engine.Messages, m => m.Message!.Contains("Resolved path:"));
         }
     }
 }

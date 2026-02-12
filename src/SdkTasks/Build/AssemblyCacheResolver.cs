@@ -14,7 +14,7 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class AssemblyCacheResolver : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         private static readonly ConcurrentDictionary<string, string> _pathCache = new();
 

@@ -11,20 +11,12 @@ namespace SdkTasks.Tests
 {
     public class PackageIntegrityCheckerTests : IDisposable
     {
-        private readonly string _tempDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _tempDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public PackageIntegrityCheckerTests()
-        {
-            _tempDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_tempDir);
-
-        #region Interface and attribute compliance
-
-        #endregion
+        public PackageIntegrityCheckerTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         #region Path resolution via TaskEnvironment
 
@@ -93,8 +85,7 @@ namespace SdkTasks.Tests
             bool result = task.Execute();
 
             // Verify GetAbsolutePath was called for both PackagesDirectory and NuGetConfigPath
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                "Task should call GetAbsolutePath for PackagesDirectory and NuGetConfigPath");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
             Assert.Contains("nuget.config", trackingEnv.GetAbsolutePathArgs);
 
             // Package found via config repository path should resolve under _tempDir
@@ -168,8 +159,7 @@ namespace SdkTasks.Tests
             bool result = task.Execute();
 
             // Verify TaskEnvironment was used for environment variable access
-            Assert.True(trackingEnv.GetEnvironmentVariableCallCount >= 2,
-                "Task should call TaskEnvironment.GetEnvironmentVariable for NUGET_PACKAGES and USERPROFILE/HOME");
+            SharedTestHelpers.AssertMinimumGetEnvironmentVariableCalls(trackingEnv, 2);
 
             // Package should be found via the USERPROFILE-based global folder
             Assert.True(result);

@@ -126,5 +126,27 @@ namespace SdkTasks.Tests
             Assert.Equal("TASK_SCOPED_VALUE", task.VariableValue);
             Assert.Equal(1, trackingEnv.GetEnvironmentVariableCallCount);
         }
+
+        [Fact]
+        public void ShouldFallBackToProcessEnvWhenNotInTaskEnvironment()
+        {
+            var varName = SetGlobalEnvVar("FALLBACK_VALUE");
+
+            // Do NOT set in TaskEnvironment — should fall back to process env via TaskEnvironment
+            var trackingEnv = new TrackingTaskEnvironment();
+
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = trackingEnv,
+                VariableName = varName
+            };
+
+            task.Execute();
+
+            // Still routes through TaskEnvironment, which falls back to process env
+            SharedTestHelpers.AssertUsesGetEnvironmentVariable(trackingEnv);
+            Assert.Equal("FALLBACK_VALUE", task.VariableValue);
+        }
     }
 }

@@ -9,7 +9,7 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class WorkingDirectoryResolver : MSBuildTask, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Output]
         public string? CurrentDir { get; set; }

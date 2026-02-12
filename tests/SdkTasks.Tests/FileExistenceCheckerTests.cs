@@ -7,20 +7,13 @@ namespace SdkTasks.Tests
 {
     public class FileExistenceCheckerTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
 
-        private string CreateTempDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public FileExistenceCheckerTests() => _ctx = new TaskTestContext();
 
-        public void Dispose()
-        {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
-        }
+        private string CreateTempDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void Execute_WithRelativePath_ShouldResolveRelativeToProjectDirectory()
@@ -107,6 +100,10 @@ namespace SdkTasks.Tests
             var relativePath = "projfile.txt";
             File.WriteAllText(Path.Combine(projectDir, relativePath), "project content");
 
+            // File only exists under projectDir, NOT in process CWD
+            var cwdPath = Path.Combine(Directory.GetCurrentDirectory(), relativePath);
+            Assert.False(File.Exists(cwdPath), "Precondition: file must not exist in CWD");
+
             var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
             var task = new FileExistenceChecker
             {
@@ -121,6 +118,32 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.Contains(engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
             SharedTestHelpers.AssertUsesGetAbsolutePath(tracking);
+        }
+
+        [Fact]
+        public void Execute_ResolvedPathShouldBeUnderProjectDirectory()
+        {
+            var projectDir = CreateTempDir();
+            var relativePath = "subdir/nested.txt";
+            var nestedDir = Path.Combine(projectDir, "subdir");
+            Directory.CreateDirectory(nestedDir);
+            File.WriteAllText(Path.Combine(nestedDir, "nested.txt"), "nested content");
+
+            var tracking = SharedTestHelpers.CreateTrackingEnvironment(projectDir);
+            var task = new FileExistenceChecker
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = tracking,
+                FilePath = relativePath
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            SharedTestHelpers.AssertUsesGetAbsolutePath(tracking);
+
+            var resolvedPath = tracking.GetAbsolutePath(relativePath);
+            SharedTestHelpers.AssertPathUnderProjectDir(projectDir, resolvedPath);
         }
     }
 }

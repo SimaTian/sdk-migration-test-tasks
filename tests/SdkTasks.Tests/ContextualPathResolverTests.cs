@@ -8,20 +8,13 @@ namespace SdkTasks.Tests
 {
     public class ContextualPathResolverTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
 
-        private string CreateProjectDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public ContextualPathResolverTests() => _ctx = new TaskTestContext();
 
-        public void Dispose()
-        {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
-        }
+        private string CreateProjectDir() => _ctx.CreateAdditionalProjectDir();
+
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldNotModifyGlobalCwd()
@@ -113,8 +106,7 @@ namespace SdkTasks.Tests
             Assert.True(task.Execute());
 
             // Task must call GetCanonicalForm for each relative path
-            Assert.True(tracking.GetCanonicalFormCallCount >= 2,
-                $"Expected GetCanonicalForm to be called at least 2 times, but was called {tracking.GetCanonicalFormCallCount} times.");
+            SharedTestHelpers.AssertMinimumGetCanonicalFormCalls(tracking, 2);
         }
 
         [Fact]
@@ -187,8 +179,7 @@ namespace SdkTasks.Tests
             Assert.True(task.Execute());
 
             // GetCanonicalForm should be called during auto-init for the project file path
-            Assert.True(tracking.GetCanonicalFormCallCount >= 1,
-                "Task should call GetCanonicalForm when auto-initializing ProjectDirectory.");
+            SharedTestHelpers.AssertMinimumGetCanonicalFormCalls(tracking, 1);
         }
 
         [Fact]

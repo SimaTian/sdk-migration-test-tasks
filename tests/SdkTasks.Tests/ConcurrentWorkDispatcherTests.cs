@@ -7,16 +7,12 @@ namespace SdkTasks.Tests
 {
     public class ConcurrentWorkDispatcherTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public ConcurrentWorkDispatcherTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public ConcurrentWorkDispatcherTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void ShouldUseTaskEnvironmentForEnvVars()
@@ -97,15 +93,7 @@ namespace SdkTasks.Tests
                 $"Execute failed. Errors: {string.Join("; ", _engine.Errors.Select(e => e.Message))}");
             Assert.NotEmpty(task.CompletedItems);
             string resolvedPath = task.CompletedItems[0].GetMetadata("ResolvedPath");
-            SharedTestHelpers.AssertPathUnderProjectDir(_projectDir, resolvedPath);
-
-            // Must NOT resolve relative to process CWD
-            string cwd = Directory.GetCurrentDirectory();
-            if (!cwd.Equals(_projectDir, StringComparison.OrdinalIgnoreCase))
-            {
-                Assert.False(resolvedPath.StartsWith(cwd, StringComparison.OrdinalIgnoreCase),
-                    "Resolved path must not be relative to process CWD");
-            }
+            SharedTestHelpers.AssertNotResolvedToCwd(resolvedPath, _projectDir);
         }
 
         [Fact]

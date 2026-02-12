@@ -10,16 +10,12 @@ namespace SdkTasks.Tests
 {
     public class ItemFilterPipelineTests : IDisposable
     {
-        private readonly string _tempDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _tempDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public ItemFilterPipelineTests()
-        {
-            _tempDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_tempDir);
+        public ItemFilterPipelineTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         [Fact]
         public void Execute_ExternalReference_ShouldResolveToProjectDir()
@@ -59,8 +55,7 @@ namespace SdkTasks.Tests
 
             task.Execute();
 
-            Assert.True(trackingEnv.GetAbsolutePathCallCount >= 2,
-                $"Task should call GetAbsolutePath for ExternalReference (called {trackingEnv.GetAbsolutePathCallCount} times, expected >= 2)");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(trackingEnv, 2);
         }
 
         [Fact]

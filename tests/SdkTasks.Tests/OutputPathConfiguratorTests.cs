@@ -8,16 +8,12 @@ namespace SdkTasks.Tests
 {
     public class OutputPathConfiguratorTests : IDisposable
     {
-        private readonly string _projectDir;
-        private readonly MockBuildEngine _engine;
+        private readonly TaskTestContext _ctx;
+        private string _projectDir => _ctx.ProjectDir;
+        private MockBuildEngine _engine => _ctx.Engine;
 
-        public OutputPathConfiguratorTests()
-        {
-            _projectDir = TestHelper.CreateNonCwdTempDirectory();
-            _engine = new MockBuildEngine();
-        }
-
-        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
+        public OutputPathConfiguratorTests() => _ctx = new TaskTestContext();
+        public void Dispose() => _ctx.Dispose();
 
         #region Interface and Attribute
 
@@ -307,8 +303,7 @@ namespace SdkTasks.Tests
 
             Assert.True(result);
             // At least 3 calls: OutputDirectory, IntermediateDirectory, and the reference
-            Assert.True(tracking.GetAbsolutePathCallCount >= 3,
-                $"Expected >= 3 GetAbsolutePath calls, got {tracking.GetAbsolutePathCallCount}");
+            SharedTestHelpers.AssertMinimumGetAbsolutePathCalls(tracking, 3);
         }
 
         #endregion

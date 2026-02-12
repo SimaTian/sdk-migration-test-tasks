@@ -6,20 +6,16 @@ namespace SdkTasks.Tests
 {
     public class BuildEnvironmentConfiguratorTests : IDisposable
     {
-        private readonly List<string> _tempDirs = new();
+        private readonly TaskTestContext _ctx;
         private readonly List<string> _envVarsToClean = new();
 
-        private string CreateTempDir()
-        {
-            var dir = TestHelper.CreateNonCwdTempDirectory();
-            _tempDirs.Add(dir);
-            return dir;
-        }
+        public BuildEnvironmentConfiguratorTests() => _ctx = new TaskTestContext();
+
+        private string CreateTempDir() => _ctx.CreateAdditionalProjectDir();
 
         public void Dispose()
         {
-            foreach (var dir in _tempDirs)
-                TestHelper.CleanupTempDirectory(dir);
+            _ctx.Dispose();
             foreach (var name in _envVarsToClean)
                 Environment.SetEnvironmentVariable(name, null);
         }

@@ -8,7 +8,7 @@ namespace SdkTasks.Configuration
     [MSBuildMultiThreadableTask]
     public class BuildEnvironmentConfigurator : MSBuildTask, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         public string? VariableName { get; set; }
 
