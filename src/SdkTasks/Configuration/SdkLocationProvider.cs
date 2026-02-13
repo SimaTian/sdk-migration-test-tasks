@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -44,6 +44,10 @@ namespace SdkTasks.Configuration
             }
 
             string sdkRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT") ?? FindSdkFallback();
+            if (!string.IsNullOrEmpty(sdkRoot))
+            {
+                sdkRoot = TaskEnvironment.GetAbsolutePath(sdkRoot);
+            }
             if (string.IsNullOrEmpty(sdkRoot) || !Directory.Exists(sdkRoot))
             {
                 Log.LogError("Could not locate the .NET SDK. Set the DOTNET_ROOT environment variable.");
@@ -84,7 +88,15 @@ namespace SdkTasks.Configuration
                 "/usr/local/share/dotnet",
             };
 
-            return candidates.FirstOrDefault(Directory.Exists) ?? string.Empty;
+            foreach (string candidate in candidates)
+            {
+                if (string.IsNullOrEmpty(candidate))
+                    continue;
+                string resolved = TaskEnvironment.GetAbsolutePath(candidate);
+                if (Directory.Exists(resolved))
+                    return resolved;
+            }
+            return string.Empty;
         }
 
         /// <summary>

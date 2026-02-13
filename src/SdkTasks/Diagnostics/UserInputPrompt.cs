@@ -1,4 +1,4 @@
-// UserInputPrompt - Prompts for user input during the build process
+﻿// UserInputPrompt - Prompts for user input during the build process
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 

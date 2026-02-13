@@ -1,4 +1,4 @@
-// WorkingDirectoryResolver - Resolves paths relative to the current working directory
+﻿// WorkingDirectoryResolver - Resolves paths relative to the current working directory
 using System;
 using System.IO;
 using Microsoft.Build.Framework;

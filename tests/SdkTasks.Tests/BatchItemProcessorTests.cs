@@ -52,5 +52,57 @@ namespace SdkTasks.Tests
             Assert.Equal(Path.Combine(_projectDir, "file1.txt"), task.AbsolutePaths[0]);
             Assert.Equal(Path.Combine(_projectDir, "subdir\\file2.txt"), task.AbsolutePaths[1]);
         }
+
+        [Fact]
+        public void AutoInitializesProjectDirectoryFromBuildEngine()
+        {
+            // Arrange
+            string projectFile = Path.Combine(_projectDir, "test.proj");
+            _engine.ProjectFileOfTaskNode = projectFile;
+
+            // Create TaskEnvironment with empty ProjectDirectory
+            var taskEnv = new TaskEnvironment(); 
+            // Note: ProjectDirectory is empty by default
+
+            var task = new SdkTasks.Compilation.BatchItemProcessor
+            {
+                BuildEngine = _engine,
+                RelativePaths = new[] { "file.txt" },
+                TaskEnvironment = taskEnv
+            };
+
+            // Act
+            task.Execute();
+
+            // Assert
+            Assert.Equal(_projectDir, taskEnv.ProjectDirectory);
+            Assert.Equal(Path.Combine(_projectDir, "file.txt"), task.AbsolutePaths[0]);
+        }
+
+        [Fact]
+        public void HandlesNullTaskEnvironment()
+        {
+            // This test verifies that the task can run even if TaskEnvironment is not injected (e.g. single-threaded mode)
+            // It should auto-initialize TaskEnvironment
+            
+            string projectFile = Path.Combine(_projectDir, "test.proj");
+            _engine.ProjectFileOfTaskNode = projectFile;
+
+            var task = new SdkTasks.Compilation.BatchItemProcessor
+            {
+                BuildEngine = _engine,
+                RelativePaths = new[] { "file.txt" },
+                TaskEnvironment = null! // Simulate missing injection
+            };
+
+            // Act
+            bool result = task.Execute();
+
+            // Assert
+            Assert.True(result);
+            Assert.NotNull(task.TaskEnvironment);
+            Assert.Equal(_projectDir, task.TaskEnvironment.ProjectDirectory);
+             Assert.Equal(Path.Combine(_projectDir, "file.txt"), task.AbsolutePaths[0]);
+        }
     }
 }

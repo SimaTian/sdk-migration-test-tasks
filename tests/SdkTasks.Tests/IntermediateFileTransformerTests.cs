@@ -38,6 +38,28 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            var projectDir = CreateProjectDir();
+            var projectFile = Path.Combine(projectDir, "test.proj");
+            File.WriteAllText(projectFile, "<Project/>");
+            File.WriteAllText(Path.Combine(projectDir, "input.txt"), "Test content");
+
+            var engine = new MockBuildEngine { ProjectFileOfTaskNode = projectFile };
+
+            var task = new SdkTasks.Build.IntermediateFileTransformer
+            {
+                BuildEngine = engine,
+                TaskEnvironment = new TaskEnvironment(), // Empty TaskEnvironment
+                InputFile = "input.txt",
+                TransformName = "testxform",
+            };
+
+            Assert.True(task.Execute());
+            Assert.Contains("Test content", task.TransformedContent);
+        }
+
+        [Fact]
         public void ShouldUseIsolatedTempFiles()
         {
             var dir1 = CreateProjectDir();

@@ -1,4 +1,4 @@
-// DirectoryContextSwitcher - Switches the working directory context for build operations
+﻿// DirectoryContextSwitcher - Switches the working directory context for build operations
 using System;
 using System.IO;
 using Microsoft.Build.Framework;
@@ -25,7 +25,7 @@ namespace SdkTasks.Build
                 }
             }
 
-            var resolvedDirectory = TaskEnvironment.GetAbsolutePath(NewDirectory!);
+            var resolvedDirectory = TaskEnvironment.GetCanonicalForm(NewDirectory!);
             Log.LogMessage(MessageImportance.Normal, "Directory context for build operations: {0} (resolved from: {1})", resolvedDirectory, NewDirectory);
             return true;
         }

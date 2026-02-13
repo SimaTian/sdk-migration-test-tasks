@@ -1,4 +1,4 @@
-// BatchItemProcessor - Converts relative paths to absolute paths in batch
+﻿// BatchItemProcessor - Converts relative paths to absolute paths in batch
 using System;
 using System.IO;
 using System.Linq;
@@ -20,8 +20,23 @@ namespace SdkTasks.Compilation
 
         public override bool Execute()
         {
+            if (TaskEnvironment == null)
+            {
+                TaskEnvironment = new TaskEnvironment();
+            }
+
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             AbsolutePaths = RelativePaths
-                .Select(p => Path.Combine(TaskEnvironment.ProjectDirectory, p))
+                .Select(p => TaskEnvironment.GetAbsolutePath(p))
                 .ToArray();
 
             foreach (var path in AbsolutePaths)

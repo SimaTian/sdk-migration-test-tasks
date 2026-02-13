@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,7 +14,7 @@ namespace SdkTasks.Diagnostics
     [MSBuildMultiThreadableTask]
     public class DiagnosticReportAggregator : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new TaskEnvironment();
 
         [Required]
         public ITaskItem[] SourceDirectories { get; set; } = Array.Empty<ITaskItem>();
@@ -42,8 +42,18 @@ namespace SdkTasks.Diagnostics
         {
             try
             {
-                // BUG: Path.GetFullPath uses process-global current directory
-                string reportDestination = Path.GetFullPath(ReportOutputPath);
+                // Auto-initialize ProjectDirectory from BuildEngine when not set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
+                string reportDestination = TaskEnvironment.GetAbsolutePath(ReportOutputPath);
                 Log.LogMessage(MessageImportance.Normal,
                     "Aggregating diagnostics. Report: {0}", reportDestination);
 
@@ -52,8 +62,7 @@ namespace SdkTasks.Diagnostics
 
                 foreach (ITaskItem dirItem in SourceDirectories)
                 {
-                    string dir = dirItem.ItemSpec;
-                    // BUG: Directory.GetFiles with relative path depends on current directory
+                    string dir = TaskEnvironment.GetAbsolutePath(dirItem.ItemSpec);
                     string[] logFiles = Directory.GetFiles(dir, "*.log", SearchOption.AllDirectories);
                     Log.LogMessage(MessageImportance.Low,
                         "Found {0} log files in: {1}", logFiles.Length, dir);
@@ -95,8 +104,7 @@ namespace SdkTasks.Diagnostics
         private List<DiagnosticEntry> ExtractDiagnostics(string path)
         {
             var entries = new List<DiagnosticEntry>();
-            // BUG: File.ReadAllLines + Path.GetFullPath uses process-global current directory
-            string[] lines = File.ReadAllLines(Path.GetFullPath(path));
+            string[] lines = File.ReadAllLines(TaskEnvironment.GetAbsolutePath(path));
 
             for (int i = 0; i < lines.Length; i++)
             {
@@ -126,21 +134,18 @@ namespace SdkTasks.Diagnostics
 
         private TimeSpan ComputeFileAge(string filePath)
         {
-            // BUG: File.GetLastWriteTime with relative path depends on current directory
-            DateTime lastModified = File.GetLastWriteTime(filePath);
+            DateTime lastModified = File.GetLastWriteTime(TaskEnvironment.GetAbsolutePath(filePath));
             return DateTime.Now - lastModified;
         }
 
         private void EmitReportHeader(string reportPath)
         {
-            // BUG: Environment.MachineName is process-global shared state
             string hostName = Environment.MachineName;
-            // BUG: Environment.GetEnvironmentVariable is process-global
-            string buildId = Environment.GetEnvironmentVariable("BUILD_NUMBER") ?? "local";
+            string buildId = TaskEnvironment.GetEnvironmentVariable("BUILD_NUMBER") ?? "local";
 
             string header = $@"<!DOCTYPE html>
 <html>
-<head><title>Diagnostic Report — {hostName}</title>
+<head><title>Diagnostic Report â€” {hostName}</title>
 <style>
   body {{ font-family: 'Segoe UI', sans-serif; margin: 20px; }}
   table {{ border-collapse: collapse; width: 100%; }}
@@ -159,7 +164,6 @@ namespace SdkTasks.Diagnostics
   <strong>Generated:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} UTC
 </div>";
 
-            // BUG: File.WriteAllText with path resolved via Path.GetFullPath (process-global)
             File.WriteAllText(reportPath, header);
         }
 
@@ -188,7 +192,6 @@ namespace SdkTasks.Diagnostics
 
             sb.AppendLine("</table>");
 
-            // BUG: File.AppendAllText builds report incrementally (not thread-safe)
             File.AppendAllText(reportPath, sb.ToString());
         }
 
@@ -197,7 +200,6 @@ namespace SdkTasks.Diagnostics
             string footer = @"
 </body>
 </html>";
-            // BUG: File.AppendAllText with process-global resolved path
             File.AppendAllText(reportPath, footer);
         }
 

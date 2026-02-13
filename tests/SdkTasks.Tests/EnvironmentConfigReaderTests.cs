@@ -1,6 +1,7 @@
 using Xunit;
 using Microsoft.Build.Framework;
 using SdkTasks.Tests.Infrastructure;
+using System.IO;
 
 namespace SdkTasks.Tests
 {
@@ -50,6 +51,29 @@ namespace SdkTasks.Tests
             task.Execute();
 
             Assert.Equal("TASK_VALUE", task.VariableValue);
+        }
+
+        [Fact]
+        public void Execute_ShouldInitializeProjectDirectory_FromBuildEngine()
+        {
+            // Arrange
+            var task = new SdkTasks.Configuration.EnvironmentConfigReader
+            {
+                BuildEngine = new MockBuildEngine(), // Returns "test.csproj"
+                TaskEnvironment = new TaskEnvironment(), // ProjectDirectory is Empty
+                VariableName = "TEST_VAR"
+            };
+
+            // Act
+            task.Execute();
+
+            // Assert
+            Assert.False(string.IsNullOrEmpty(task.TaskEnvironment.ProjectDirectory), 
+                "TaskEnvironment.ProjectDirectory should be initialized from BuildEngine.ProjectFileOfTaskNode");
+            
+            // "test.csproj" resolves to CWD/test.csproj, so ProjectDirectory should be CWD
+            var expectedDir = Directory.GetCurrentDirectory();
+            Assert.Equal(expectedDir, task.TaskEnvironment.ProjectDirectory);
         }
     }
 }

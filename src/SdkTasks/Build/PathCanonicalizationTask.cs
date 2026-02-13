@@ -1,4 +1,4 @@
-// PathCanonicalizationTask - Converts paths to their canonical form
+﻿// PathCanonicalizationTask - Converts paths to their canonical form
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -31,7 +31,7 @@ namespace SdkTasks.Build
             }
 
             // Resolve relative path and normalize to canonical form
-            string canonicalPath = Path.GetFullPath(InputPath);
+            string canonicalPath = TaskEnvironment.GetCanonicalForm(TaskEnvironment.GetAbsolutePath(InputPath));
             Log.LogMessage(MessageImportance.Normal, $"Canonical path: {canonicalPath}");
 
             if (File.Exists(canonicalPath))

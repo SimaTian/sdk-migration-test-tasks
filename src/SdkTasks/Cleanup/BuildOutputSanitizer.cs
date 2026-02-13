@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -30,6 +30,17 @@ namespace SdkTasks.Cleanup
 
         public override bool Execute()
         {
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             try
             {
                 RemovedFiles = 0;
@@ -47,8 +58,7 @@ namespace SdkTasks.Cleanup
                 {
                     string dir = dirItem.ItemSpec;
 
-                    // BUG: Uses Path.GetFullPath() instead of TaskEnvironment.GetCanonicalForm()
-                    string resolvedDir = Path.GetFullPath(dir);
+                    string resolvedDir = TaskEnvironment.GetAbsolutePath(dir);
 
                     if (!Directory.Exists(resolvedDir))
                     {
@@ -57,7 +67,7 @@ namespace SdkTasks.Cleanup
                         continue;
                     }
 
-                    SanitizeDirectory(resolvedDir, retainGlobs);
+                    SanitizeDirectory(dir, retainGlobs);
                 }
 
                 Log.LogMessage(MessageImportance.Normal,
@@ -75,12 +85,10 @@ namespace SdkTasks.Cleanup
 
         private void SanitizeDirectory(string dir, string[] retainGlobs)
         {
-            // BUG: Uses Path.GetFullPath() instead of TaskEnvironment.GetCanonicalForm()
-            string canonicalDir = Path.GetFullPath(dir);
+            string canonicalDir = TaskEnvironment.GetCanonicalForm(dir);
 
             Log.LogMessage(MessageImportance.Low, "Scanning directory: {0}", canonicalDir);
 
-            // BUG: Direct filesystem enumeration via Directory.EnumerateFiles
             IEnumerable<string> files = Directory.EnumerateFiles(
                 canonicalDir, "*", SearchOption.AllDirectories);
 
@@ -161,15 +169,13 @@ namespace SdkTasks.Cleanup
         {
             try
             {
-                // BUG: Creates ProcessStartInfo directly instead of using
-                // TaskEnvironment.GetProcessStartInfo()
-                var psi = new ProcessStartInfo("handle.exe", filePath)
-                {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                var psi = TaskEnvironment.GetProcessStartInfo();
+                psi.FileName = "handle.exe";
+                psi.Arguments = filePath;
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
 
                 using var process = Process.Start(psi);
                 if (process == null)
@@ -203,15 +209,13 @@ namespace SdkTasks.Cleanup
         {
             try
             {
-                // BUG: Creates ProcessStartInfo directly instead of using
-                // TaskEnvironment.GetProcessStartInfo()
-                var psi = new ProcessStartInfo("cmd", $"/c del /f /q \"{filePath}\"")
-                {
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                };
+                var psi = TaskEnvironment.GetProcessStartInfo();
+                psi.FileName = "cmd";
+                psi.Arguments = $"/c del /f /q \"{filePath}\"";
+                psi.RedirectStandardOutput = true;
+                psi.RedirectStandardError = true;
+                psi.UseShellExecute = false;
+                psi.CreateNoWindow = true;
 
                 using var process = Process.Start(psi);
                 if (process == null)

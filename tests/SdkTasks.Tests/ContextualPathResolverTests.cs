@@ -82,6 +82,24 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            var task = new SdkTasks.Build.ContextualPathResolver
+            {
+                BuildEngine = new MockBuildEngine(),
+                TaskEnvironment = new TaskEnvironment(),
+                RelativePaths = new[] { "src\\file.cs" },
+            };
+
+            Assert.True(task.Execute());
+
+            var expectedDir = Directory.GetCurrentDirectory();
+            Assert.Equal(expectedDir, task.TaskEnvironment.ProjectDirectory);
+            Assert.All(task.ResolvedItems,
+                item => Assert.Equal(expectedDir, item.GetMetadata("ProjectDirectory")));
+        }
+
+        [Fact]
         public void ShouldResolveToOwnProjectDirectory()
         {
             var dir1 = CreateProjectDir();

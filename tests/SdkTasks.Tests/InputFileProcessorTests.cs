@@ -53,5 +53,27 @@ namespace SdkTasks.Tests
             string resolved = task.ProcessedFiles[0].ItemSpec;
             Assert.StartsWith(_projectDir, resolved, StringComparison.OrdinalIgnoreCase);
         }
+
+        [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            File.WriteAllText(Path.Combine(_projectDir, "input.cs"), "// code");
+            _engine.ProjectFileOfTaskNode = Path.Combine(_projectDir, "project.csproj");
+
+            var task = new SdkTasks.Compilation.InputFileProcessor
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = new TaskEnvironment(), // Empty TaskEnvironment - should auto-init
+                InputFiles = new ITaskItem[] { new TaskItem("input.cs") }
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.Single(task.ProcessedFiles);
+            string resolved = task.ProcessedFiles[0].ItemSpec;
+            Assert.StartsWith(_projectDir, resolved, StringComparison.OrdinalIgnoreCase);
+            Assert.EndsWith("input.cs", resolved, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

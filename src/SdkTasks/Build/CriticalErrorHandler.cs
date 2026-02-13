@@ -1,4 +1,4 @@
-// CriticalErrorHandler - Handles critical build errors that require immediate termination
+﻿// CriticalErrorHandler - Handles critical build errors that require immediate termination
 using System;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;

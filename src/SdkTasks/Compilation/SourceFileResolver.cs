@@ -1,4 +1,4 @@
-// SourceFileResolver - Resolves source file paths to absolute locations
+﻿// SourceFileResolver - Resolves source file paths to absolute locations
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;

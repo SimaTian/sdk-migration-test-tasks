@@ -51,5 +51,27 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.Contains(_engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
         }
+
+        [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            var relativePath = "filecheck-auto.txt";
+            var projectFile = Path.Combine(_projectDir, "test.csproj");
+            File.WriteAllText(Path.Combine(_projectDir, relativePath), "auto-init content");
+
+            _engine.ProjectFileOfTaskNode = projectFile;
+
+            var task = new SdkTasks.Build.FileExistenceChecker
+            {
+                BuildEngine = _engine,
+                // TaskEnvironment has empty ProjectDirectory by default
+                FilePath = relativePath
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.Contains(_engine.Messages, m => m.Message!.Contains("contains") && m.Message!.Contains("characters"));
+        }
     }
 }

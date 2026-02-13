@@ -53,5 +53,32 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.Contains(_engine.Messages, m => m.Message!.Contains("Processing file"));
         }
+
+        [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            var fileName = "auto-init-test.txt";
+            var absolutePath = Path.Combine(_projectDir, fileName);
+            File.WriteAllText(absolutePath, "test content");
+
+            var projectFile = Path.Combine(_projectDir, "test.csproj");
+            _engine.ProjectFileOfTaskNode = projectFile;
+
+            // Empty TaskEnvironment (simulating default state)
+            var taskEnv = new TaskEnvironment();
+
+            var task = new SdkTasks.Build.DirectPathResolver
+            {
+                BuildEngine = _engine,
+                InputPath = fileName,
+                EnvVarName = "TEST_VAR",
+                TaskEnvironment = taskEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.Contains(_engine.Messages, m => m.Message!.Contains(absolutePath));
+        }
     }
 }

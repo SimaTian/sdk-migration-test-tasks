@@ -47,5 +47,61 @@ namespace SdkTasks.Tests
 
             Assert.Contains(_projectDir, task.ResolvedOutputDirectory, StringComparison.OrdinalIgnoreCase);
         }
+
+        [Fact]
+        public void ResolveDirectory_UsesTaskEnvironment_GetAbsolutePath()
+        {
+            var taskEnv = new TrackingTaskEnvironment { ProjectDirectory = _projectDir };
+            var task = new SdkTasks.Build.OutputPathConfigurator
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = taskEnv,
+                OutputDirectory = "bin"
+            };
+
+            task.Execute();
+
+            // Verify GetAbsolutePath was called
+            Assert.True(taskEnv.GetAbsolutePathCallCount > 0, "Should call GetAbsolutePath");
+            Assert.Contains("bin", taskEnv.GetAbsolutePathArgs);
+        }
+
+        [Fact]
+        public void Execute_ProducesCorrectPaths_WhenCwdIsDifferent()
+        {
+            var outputDir = "out";
+            var task = new SdkTasks.Build.OutputPathConfigurator
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = TaskEnvironmentHelper.CreateForTest(_projectDir),
+                OutputDirectory = outputDir
+            };
+
+            task.Execute();
+
+            var expected = Path.Combine(_projectDir, outputDir) + Path.DirectorySeparatorChar;
+            Assert.Equal(expected, task.ResolvedOutputDirectory);
+        }
+
+        [Fact]
+        public void Execute_InitializesProjectDirectory_FromBuildEngine()
+        {
+            // Do NOT set ProjectDirectory in TaskEnvironment
+            var env = new TrackingTaskEnvironment();
+            var task = new SdkTasks.Build.OutputPathConfigurator
+            {
+                BuildEngine = _engine,
+                TaskEnvironment = env,
+                OutputDirectory = "bin"
+            };
+
+            // Mock engine returns absolute path
+            var projectFile = Path.Combine(_projectDir, "test.csproj");
+            _engine.ProjectFileOfTaskNode = projectFile;
+
+            task.Execute();
+
+            Assert.Equal(_projectDir, env.ProjectDirectory);
+        }
     }
 }

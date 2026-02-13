@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -36,7 +36,8 @@ namespace SdkTasks.Configuration
                         ?? TaskEnvironment.GetEnvironmentVariable("HOME")
                         ?? "", ".nuget", "packages");
 
-                string configPath = Path.Combine(nugetPackagesDir, "cache", "dependency-config.json");
+                string configPath = TaskEnvironment.GetAbsolutePath(
+                    Path.Combine(nugetPackagesDir, "cache", "dependency-config.json"));
                 if (!File.Exists(configPath))
                 {
                     return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -65,8 +66,9 @@ namespace SdkTasks.Configuration
                 string projectFile = BuildEngine.ProjectFileOfTaskNode;
                 if (!string.IsNullOrEmpty(projectFile))
                 {
+                    string projectFilePath = TaskEnvironment.GetAbsolutePath(projectFile);
                     TaskEnvironment.ProjectDirectory =
-                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                        Path.GetDirectoryName(projectFilePath) ?? string.Empty;
                 }
             }
 

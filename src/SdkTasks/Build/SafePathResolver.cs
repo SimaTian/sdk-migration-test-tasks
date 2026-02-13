@@ -1,4 +1,4 @@
-// SafePathResolver - Resolves input paths with fallback logic
+﻿// SafePathResolver - Resolves input paths with fallback logic
 using System;
 using System.IO;
 using Microsoft.Build.Framework;
@@ -16,17 +16,18 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
-            string resolved;
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                }
+            }
 
-            // Resolve with fallback logic
-            if (TaskEnvironment != null)
-            {
-                resolved = Path.GetFullPath(InputPath);
-            }
-            else
-            {
-                resolved = Path.GetFullPath(InputPath);
-            }
+            string resolved = TaskEnvironment.GetAbsolutePath(InputPath);
 
             if (File.Exists(resolved))
             {

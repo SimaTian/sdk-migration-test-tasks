@@ -37,19 +37,21 @@ namespace SdkTasks.Tests
         [Fact]
         public void ShouldUseTaskEnvironment()
         {
-            var nugetDir = Path.Combine(_projectDir, "nuget-packages");
+            var relativeNugetDir = "nuget-packages";
+            var nugetDir = Path.Combine(_projectDir, relativeNugetDir);
             var cacheDir = Path.Combine(nugetDir, "cache");
             Directory.CreateDirectory(cacheDir);
 
             File.WriteAllText(Path.Combine(cacheDir, "dependency-config.json"),
                 "TestDep=1.0.0");
 
-            var sdkDir = Path.Combine(_projectDir, "dotnet-sdk");
+            var relativeSdkDir = "dotnet-sdk";
+            var sdkDir = Path.Combine(_projectDir, relativeSdkDir);
             Directory.CreateDirectory(Path.Combine(sdkDir, "packs", "TestDep", "1.0.0"));
 
             var taskEnv = TaskEnvironmentHelper.CreateForTest(_projectDir);
-            taskEnv.SetEnvironmentVariable("NUGET_PACKAGES", nugetDir);
-            taskEnv.SetEnvironmentVariable("DOTNET_ROOT", sdkDir);
+            taskEnv.SetEnvironmentVariable("NUGET_PACKAGES", relativeNugetDir);
+            taskEnv.SetEnvironmentVariable("DOTNET_ROOT", relativeSdkDir);
 
             var task = new SdkTasks.Configuration.DeferredConfigLoader
             {

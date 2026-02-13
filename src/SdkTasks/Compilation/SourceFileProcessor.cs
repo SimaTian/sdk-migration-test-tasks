@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -32,7 +32,10 @@ namespace SdkTasks.Compilation
 
         protected bool FileExists(string path)
         {
-            return !string.IsNullOrEmpty(path) && File.Exists(path);
+            if (string.IsNullOrEmpty(path))
+                return false;
+            string abs = Path.IsPathRooted(path) ? path : TaskEnvironment.GetAbsolutePath(path);
+            return File.Exists(abs);
         }
 
         protected virtual string ResolvePath(string path)
@@ -113,7 +116,7 @@ namespace SdkTasks.Compilation
                 return null;
             }
 
-            LogVerbose($"Resolved '{rawPath}' → '{resolved}'.");
+            LogVerbose($"Resolved '{rawPath}' â†’ '{resolved}'.");
 
             var result = new TaskItem(resolved);
             CopyStandardMetadata(item, result);

@@ -1,4 +1,4 @@
-// PathNormalizer - Normalizes input paths to their full form
+﻿// PathNormalizer - Normalizes input paths to their full form
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;

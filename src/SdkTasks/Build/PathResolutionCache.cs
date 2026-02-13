@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -129,7 +129,7 @@ namespace SdkTasks.Build
                 }
                 else
                 {
-                    // Another task already cached it — use the existing value.
+                    // Another task already cached it â€” use the existing value.
                     absolutePath = _pathCache[cacheKey];
                     Interlocked.Increment(ref _cacheHits);
                     Log.LogMessage(MessageImportance.Low, "  Cache resolved: '{0}' -> '{1}'", relativePath, absolutePath);
