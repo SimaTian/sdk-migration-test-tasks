@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -60,8 +60,34 @@ namespace SdkTasks.Tools
                 return false;
             }
 
-            string stdout = ReadProcessOutput(process);
-            string stderr = process.StandardError.ReadToEnd();
+            var stdoutBuilder = new StringBuilder();
+            var stderrBuilder = new StringBuilder();
+
+            process.OutputDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                {
+                    lock (stdoutBuilder)
+                    {
+                        stdoutBuilder.AppendLine(e.Data);
+                    }
+                    Log.LogMessage(MessageImportance.Low, e.Data);
+                }
+            };
+
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (e.Data != null)
+                {
+                    lock (stderrBuilder)
+                    {
+                        stderrBuilder.AppendLine(e.Data);
+                    }
+                }
+            };
+
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
             bool exited = process.WaitForExit(TimeoutMilliseconds);
             if (!exited)
@@ -71,12 +97,16 @@ namespace SdkTasks.Tools
                 return false;
             }
 
+            // Ensure async output handlers have completed
+            process.WaitForExit();
+
+            string stderr = stderrBuilder.ToString().TrimEnd();
             if (!string.IsNullOrWhiteSpace(stderr))
             {
-                Log.LogWarning("stderr: {0}", stderr.Trim());
+                Log.LogWarning("stderr: {0}", stderr);
             }
 
-            ToolOutput = stdout;
+            ToolOutput = stdoutBuilder.ToString().TrimEnd();
             return ValidateExitCode(process.ExitCode);
         }
 
@@ -102,21 +132,6 @@ namespace SdkTasks.Tools
             }
 
             return psi;
-        }
-
-        private string ReadProcessOutput(Process process)
-        {
-            var sb = new StringBuilder();
-            while (!process.StandardOutput.EndOfStream)
-            {
-                string? line = process.StandardOutput.ReadLine();
-                if (line != null)
-                {
-                    sb.AppendLine(line);
-                    Log.LogMessage(MessageImportance.Low, line);
-                }
-            }
-            return sb.ToString().TrimEnd();
         }
 
         private bool ValidateExitCode(int exitCode)

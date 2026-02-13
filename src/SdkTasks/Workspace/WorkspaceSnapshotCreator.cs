@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -31,6 +31,17 @@ namespace SdkTasks.Workspace
         {
             try
             {
+                // Auto-initialize ProjectDirectory from BuildEngine when not set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 string resolvedWorkspacePath = TaskEnvironment.GetAbsolutePath(WorkspacePath);
                 Log.LogMessage(MessageImportance.Normal,
                     "WorkspaceSnapshotCreator running in '{0}' mode for: {1}", Mode, resolvedWorkspacePath);
@@ -71,8 +82,8 @@ namespace SdkTasks.Workspace
                 return TaskEnvironment.GetAbsolutePath(SnapshotRootDirectory);
             }
 
-            // BUG: uses Environment.GetFolderPath (process-global) instead of TaskEnvironment
-            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            string localAppData = TaskEnvironment.GetEnvironmentVariable("LOCALAPPDATA")
+                ?? Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             string fallbackDir = Path.Combine(localAppData, "WorkspaceSnapshots");
             Log.LogMessage(MessageImportance.Low,
                 "No SnapshotRootDirectory specified, falling back to: {0}", fallbackDir);
@@ -180,8 +191,7 @@ namespace SdkTasks.Workspace
 
                 foreach (string file in matched)
                 {
-                    // BUG: uses Path.GetFullPath (process-global CWD) instead of TaskEnvironment
-                    string canonicalPath = Path.GetFullPath(file);
+                    string canonicalPath = TaskEnvironment.GetCanonicalForm(file);
                     if (!files.Contains(canonicalPath, StringComparer.OrdinalIgnoreCase))
                     {
                         files.Add(canonicalPath);

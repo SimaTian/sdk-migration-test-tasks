@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -43,12 +43,29 @@ namespace SdkTasks.Packaging
         {
             try
             {
-                // BUG: Uses Path.GetFullPath (process-global CWD) instead of TaskEnvironment.GetAbsolutePath
-                string resolvedCacheDir = Path.GetFullPath(PackageCacheDirectory);
+                // Defensive ProjectDirectory initialization from BuildEngine
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
 
-                if (!Directory.Exists(resolvedCacheDir))
+                string resolvedCacheDir;
+                if (string.IsNullOrEmpty(PackageCacheDirectory))
                 {
                     resolvedCacheDir = ResolveDefaultCacheDirectory();
+                }
+                else
+                {
+                    resolvedCacheDir = TaskEnvironment.GetAbsolutePath(PackageCacheDirectory);
+                    if (!Directory.Exists(resolvedCacheDir))
+                    {
+                        resolvedCacheDir = ResolveDefaultCacheDirectory();
+                    }
                 }
 
                 Log.LogMessage(MessageImportance.Normal,
@@ -58,7 +75,7 @@ namespace SdkTasks.Packaging
                 var unresolvedItems = new List<ITaskItem>();
                 int verifiedCount = 0;
 
-                reportLines.Add($"Package Integrity Verification Report — {DateTime.UtcNow:u}");
+                reportLines.Add($"Package Integrity Verification Report â€” {DateTime.UtcNow:u}");
                 reportLines.Add($"Target Framework: {TargetFramework}");
                 reportLines.Add($"Package Cache: {resolvedCacheDir}");
                 reportLines.Add(new string('-', 72));
@@ -68,12 +85,12 @@ namespace SdkTasks.Packaging
                     string packageId = pkgRef.ItemSpec;
                     string version = pkgRef.GetMetadata("Version") ?? "0.0.0";
 
-                    var result = VerifySinglePackage(packageId, version);
+                    var result = VerifySinglePackage(packageId, version, resolvedCacheDir);
 
                     if (result.IsResolved)
                     {
                         string assemblyInfo = result.ContainsAssembly ? "assembly located" : "no assembly (meta-package?)";
-                        reportLines.Add($"  OK   {packageId}/{version} — {assemblyInfo}");
+                        reportLines.Add($"  OK   {packageId}/{version} â€” {assemblyInfo}");
 
                         if (!string.IsNullOrEmpty(result.SpecVersion) &&
                             !VersionsAreEquivalent(version, result.SpecVersion))
@@ -87,14 +104,14 @@ namespace SdkTasks.Packaging
                     }
                     else
                     {
-                        reportLines.Add($"  MISS {packageId}/{version} — {result.Reason}");
+                        reportLines.Add($"  MISS {packageId}/{version} â€” {result.Reason}");
 
                         var item = new TaskItem(packageId);
                         item.SetMetadata("Version", version);
                         item.SetMetadata("Reason", result.Reason ?? "Not found in cache");
                         unresolvedItems.Add(item);
 
-                        Log.LogError("Unresolved package: {0} {1} — {2}", packageId, version, result.Reason);
+                        Log.LogError("Unresolved package: {0} {1} â€” {2}", packageId, version, result.Reason);
                     }
                 }
 
@@ -118,32 +135,30 @@ namespace SdkTasks.Packaging
 
         private string ResolveDefaultCacheDirectory()
         {
-            // BUG: Uses Environment.GetEnvironmentVariable (process-global) instead of TaskEnvironment
-            string? nugetCache = Environment.GetEnvironmentVariable("NUGET_PACKAGES");
+            string? nugetCache = TaskEnvironment.GetEnvironmentVariable("NUGET_PACKAGES");
             if (!string.IsNullOrEmpty(nugetCache))
             {
                 Log.LogMessage(MessageImportance.Low, "Using NUGET_PACKAGES env: {0}", nugetCache);
                 return nugetCache;
             }
 
-            // BUG: Uses Environment.GetFolderPath (process-global) instead of TaskEnvironment
-            string userHome = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string userHome = TaskEnvironment.GetEnvironmentVariable("USERPROFILE")
+                ?? TaskEnvironment.GetEnvironmentVariable("HOME")
+                ?? string.Empty;
             string defaultCache = Path.Combine(userHome, ".nuget", "packages");
             Log.LogMessage(MessageImportance.Low, "Falling back to default cache: {0}", defaultCache);
             return defaultCache;
         }
 
-        private PackageVerificationResult VerifySinglePackage(string id, string version)
+        private PackageVerificationResult VerifySinglePackage(string id, string version, string cacheDir)
         {
-            // BUG: Uses Path.GetFullPath (process-global CWD) instead of TaskEnvironment.GetAbsolutePath
-            string packageDir = Path.GetFullPath(
-                Path.Combine(PackageCacheDirectory, id.ToLowerInvariant(), version));
+            string packageDir = TaskEnvironment.GetAbsolutePath(
+                Path.Combine(cacheDir, id.ToLowerInvariant(), version));
 
             if (!Directory.Exists(packageDir))
             {
-                string altDir = Path.Combine(PackageCacheDirectory, id, version);
-                // BUG: Again uses Path.GetFullPath instead of TaskEnvironment.GetAbsolutePath
-                packageDir = Path.GetFullPath(altDir);
+                string altDir = Path.Combine(cacheDir, id, version);
+                packageDir = TaskEnvironment.GetAbsolutePath(altDir);
 
                 if (!Directory.Exists(packageDir))
                     return new PackageVerificationResult(false, false, null,

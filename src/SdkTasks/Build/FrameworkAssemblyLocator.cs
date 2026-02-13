@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -39,6 +39,17 @@ namespace SdkTasks.Build
         {
             try
             {
+                // Defensive ProjectDirectory initialization for IMultiThreadableTask
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                     string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                     if (!string.IsNullOrEmpty(projectFile))
+                     {
+                         TaskEnvironment.ProjectDirectory = 
+                             Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                     }
+                }
+
                 Log.LogMessage(MessageImportance.Normal,
                     "Resolving {0} references for {1}/{2}",
                     References.Length, TargetFramework, RuntimeIdentifier);
@@ -122,12 +133,12 @@ namespace SdkTasks.Build
                 Path.Combine("packs", $"Microsoft.NETCore.App.Ref", targetFx, "ref"));
             paths.Add(refPackPath);
 
-            string? dotnetRoot = Environment.GetEnvironmentVariable("DOTNET_ROOT");
+            string? dotnetRoot = TaskEnvironment.GetEnvironmentVariable("DOTNET_ROOT");
             if (!string.IsNullOrEmpty(dotnetRoot))
             {
                 string runtimePackPath = Path.Combine(dotnetRoot, "packs",
                     "Microsoft.NETCore.App.Runtime." + rid, targetFx, "runtimes", rid, "lib", targetFx);
-                string resolvedRuntimePack = Path.GetFullPath(runtimePackPath);
+                string resolvedRuntimePack = TaskEnvironment.GetAbsolutePath(runtimePackPath);
                 paths.Add(resolvedRuntimePack);
                 Log.LogMessage(MessageImportance.Low, "Runtime pack: {0}", resolvedRuntimePack);
             }
@@ -216,8 +227,12 @@ namespace SdkTasks.Build
                 string output = process.StandardOutput.ReadToEnd().Trim();
                 process.WaitForExit(15000);
 
-                if (process.ExitCode == 0 && !string.IsNullOrEmpty(output) && File.Exists(output))
-                    return output;
+                if (process.ExitCode == 0 && !string.IsNullOrEmpty(output))
+                {
+                    string absoluteOutput = TaskEnvironment.GetAbsolutePath(output);
+                    if (File.Exists(absoluteOutput))
+                        return absoluteOutput;
+                }
 
                 return null;
             }

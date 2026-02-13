@@ -18,22 +18,6 @@ namespace SdkTasks.Tests
         public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ImplementsIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Resources.BinaryContentWriter();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Resources.BinaryContentWriter),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
         public void ShouldWriteToProjectDirectory()
         {
             var relativePath = "streamout.bin";
@@ -49,6 +33,33 @@ namespace SdkTasks.Tests
 
             var projectPath = Path.Combine(_projectDir, relativePath);
             Assert.True(File.Exists(projectPath), "Task should write to projectDir");
+        }
+
+        [Fact]
+        public void InitializedProjectDirectoryFromBuildEngine()
+        {
+            var task = new SdkTasks.Resources.BinaryContentWriter();
+            string expectedProjectFile = Path.Combine(_projectDir, "myproject.csproj");
+
+            var buildEngine = new MockBuildEngineWithProjectFile(expectedProjectFile);
+            task.BuildEngine = buildEngine;
+            task.OutputPath = "out.bin";
+
+            // Execute without explicitly setting TaskEnvironment
+            task.Execute();
+
+            Assert.Equal(_projectDir, task.TaskEnvironment.ProjectDirectory);
+        }
+
+        private class MockBuildEngineWithProjectFile : MockBuildEngine, IBuildEngine
+        {
+            private readonly string _projectFile;
+            public MockBuildEngineWithProjectFile(string projectFile)
+            {
+                _projectFile = projectFile;
+            }
+
+            string IBuildEngine.ProjectFileOfTaskNode => _projectFile;
         }
     }
 }

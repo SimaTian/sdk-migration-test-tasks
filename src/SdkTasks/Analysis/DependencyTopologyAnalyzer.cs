@@ -12,7 +12,7 @@ namespace SdkTasks.Analysis
     [MSBuildMultiThreadableTask]
     public class DependencyTopologyAnalyzer : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         public string ScanRootDirectory { get; set; } = string.Empty;
 
@@ -30,10 +30,19 @@ namespace SdkTasks.Analysis
         {
             try
             {
-                // BUG: uses Environment.CurrentDirectory (process-global) instead of TaskEnvironment.ProjectDirectory
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile) && Path.IsPathRooted(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(projectFile) ?? string.Empty;
+                    }
+                }
+
                 string rootPath = !string.IsNullOrEmpty(ScanRootDirectory)
-                    ? ScanRootDirectory
-                    : Environment.CurrentDirectory;
+                    ? TaskEnvironment.GetAbsolutePath(ScanRootDirectory)
+                    : TaskEnvironment.ProjectDirectory;
 
                 Log.LogMessage(MessageImportance.Normal, "Scanning for .csproj files in: {0}", rootPath);
                 var exclusions = ParseExclusions();
@@ -53,9 +62,9 @@ namespace SdkTasks.Analysis
 
                 if (!string.IsNullOrEmpty(TopologyOutputPath))
                 {
-                    // BUG: uses File.WriteAllText with unresolved path
-                    File.WriteAllText(TopologyOutputPath, RenderDotNotation(adjacencyMap));
-                    Log.LogMessage(MessageImportance.Normal, "DOT topology written to: {0}", TopologyOutputPath);
+                    string outputPath = TaskEnvironment.GetAbsolutePath(TopologyOutputPath);
+                    File.WriteAllText(outputPath, RenderDotNotation(adjacencyMap));
+                    Log.LogMessage(MessageImportance.Normal, "DOT topology written to: {0}", outputPath);
                 }
 
                 Log.LogMessage(MessageImportance.Normal,
@@ -84,7 +93,6 @@ namespace SdkTasks.Analysis
         {
             var results = new List<string>();
 
-            // BUG: uses Directory.EnumerateFiles (filesystem I/O depending on CWD for relative root)
             foreach (string file in Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories))
             {
                 bool excluded = false;
@@ -100,8 +108,7 @@ namespace SdkTasks.Analysis
 
                 if (!excluded)
                 {
-                    // BUG: uses Path.GetFullPath (depends on CWD) instead of TaskEnvironment
-                    string canonical = Path.GetFullPath(file);
+                    string canonical = TaskEnvironment.GetCanonicalForm(file);
                     results.Add(canonical);
                     Log.LogMessage(MessageImportance.Low, "Found project: {0}", canonical);
                 }
@@ -114,14 +121,14 @@ namespace SdkTasks.Analysis
         {
             var references = new List<string>();
 
-            // BUG: uses File.ReadAllText directly
-            string content = File.ReadAllText(projectPath);
+            string absoluteProjectPath = TaskEnvironment.GetAbsolutePath(projectPath);
+            string content = File.ReadAllText(absoluteProjectPath);
             XDocument doc = XDocument.Parse(content);
             if (doc.Root == null)
                 return references;
 
             var ns = doc.Root.Name.Namespace;
-            string projectDir = Path.GetDirectoryName(projectPath) ?? string.Empty;
+            string projectDir = Path.GetDirectoryName(absoluteProjectPath) ?? string.Empty;
 
             foreach (var element in doc.Descendants(ns + "ProjectReference"))
             {
@@ -129,8 +136,7 @@ namespace SdkTasks.Analysis
                 if (string.IsNullOrEmpty(include))
                     continue;
 
-                // BUG: uses Path.GetFullPath(Path.Combine(...)) instead of TaskEnvironment
-                string resolvedRef = Path.GetFullPath(Path.Combine(projectDir, include));
+                string resolvedRef = TaskEnvironment.GetCanonicalForm(Path.Combine(projectDir, include));
                 references.Add(resolvedRef);
                 Log.LogMessage(MessageImportance.Low, "  Reference: {0} -> {1}", include, resolvedRef);
             }

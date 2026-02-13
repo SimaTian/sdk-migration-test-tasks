@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -37,15 +37,25 @@ namespace SdkTasks.Deployment
         {
             try
             {
+                // Auto-initialize ProjectDirectory from BuildEngine when not set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 Log.LogMessage(MessageImportance.Normal,
                     "Staging deployment artifacts from {0} input directories.", InputDirectories.Length);
 
                 HashSet<string> validExtensions = ParseAllowedExtensions(AllowedExtensions);
 
-                // BUG: uses Path.GetFullPath instead of TaskEnvironment.GetAbsolutePath
-                string outputDir = Path.GetFullPath(StagingDirectory);
+                string outputDir = TaskEnvironment.GetAbsolutePath(StagingDirectory);
 
-                // BUG: creates directory using global CWD-resolved path
+
                 if (!Directory.Exists(outputDir))
                 {
                     Directory.CreateDirectory(outputDir);
@@ -83,7 +93,6 @@ namespace SdkTasks.Deployment
                         string artifactName = Path.GetFileName(candidate);
                         string targetPath = Path.Combine(outputDir, artifactName);
 
-                        // BUG: uses File.Exists with CWD-relative resolved path
                         if (File.Exists(targetPath))
                         {
                             FileInfo srcInfo = new FileInfo(candidate);
@@ -145,8 +154,7 @@ namespace SdkTasks.Deployment
 
         private string ResolveArtifactPath(string dir)
         {
-            // BUG: uses Path.GetFullPath which depends on process-global CWD
-            return Path.GetFullPath(dir);
+            return TaskEnvironment.GetAbsolutePath(dir);
         }
 
         private HashSet<string> ParseAllowedExtensions(string extensionList)
@@ -173,7 +181,6 @@ namespace SdkTasks.Deployment
             {
                 try
                 {
-                    // BUG: uses File.Copy directly with paths resolved via Path.GetFullPath
                     File.Copy(source, destination, overwrite: true);
                     return true;
                 }
@@ -183,7 +190,6 @@ namespace SdkTasks.Deployment
                         "Stage attempt {0}/{1} failed for {2}: {3}",
                         attempt, MaxAttempts, Path.GetFileName(source), ex.Message);
 
-                    // BUG: uses Thread.Sleep which blocks the thread in a potentially shared threadpool
                     Thread.Sleep(500 * attempt);
                 }
             }
@@ -196,8 +202,7 @@ namespace SdkTasks.Deployment
             if (string.IsNullOrEmpty(InventoryPath))
                 return;
 
-            // BUG: uses Path.GetFullPath instead of TaskEnvironment.GetAbsolutePath
-            string inventoryFullPath = Path.GetFullPath(InventoryPath);
+            string inventoryFullPath = TaskEnvironment.GetAbsolutePath(InventoryPath);
 
             string? inventoryDir = Path.GetDirectoryName(inventoryFullPath);
             if (!string.IsNullOrEmpty(inventoryDir) && !Directory.Exists(inventoryDir))
@@ -225,7 +230,6 @@ namespace SdkTasks.Deployment
 
             sb.AppendLine("]");
 
-            // BUG: uses File.WriteAllText with path resolved via Path.GetFullPath
             File.WriteAllText(inventoryFullPath, sb.ToString(), Encoding.UTF8);
 
             Log.LogMessage(MessageImportance.Low,

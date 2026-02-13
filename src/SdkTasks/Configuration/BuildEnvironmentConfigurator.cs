@@ -1,4 +1,4 @@
-// BuildEnvironmentConfigurator - Sets environment variables for the build process
+﻿// BuildEnvironmentConfigurator - Sets environment variables for the build process
 using System;
 using Microsoft.Build.Framework;
 using MSBuildTask = Microsoft.Build.Utilities.Task;

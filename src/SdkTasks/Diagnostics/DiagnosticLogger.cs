@@ -1,4 +1,4 @@
-// DiagnosticLogger - Logs diagnostic messages during the build process
+﻿// DiagnosticLogger - Logs diagnostic messages during the build process
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 

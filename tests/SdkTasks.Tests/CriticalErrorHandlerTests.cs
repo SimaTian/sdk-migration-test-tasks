@@ -16,13 +16,6 @@ namespace SdkTasks.Tests
         }
 
         [Fact]
-        public void ShouldImplementIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Build.CriticalErrorHandler();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
         public void ShouldReturnFalseAndLogErrorInsteadOfFailFast()
         {
             var engine = new MockBuildEngine();

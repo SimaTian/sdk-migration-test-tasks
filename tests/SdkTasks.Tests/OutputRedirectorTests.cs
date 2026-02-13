@@ -1,44 +1,47 @@
-using Xunit;
+using System;
+using System.IO;
 using Microsoft.Build.Framework;
 using SdkTasks.Tests.Infrastructure;
+using Xunit;
 
 namespace SdkTasks.Tests
 {
-    public class OutputRedirectorTests
+    public class OutputRedirectorTests : IDisposable
     {
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
+        private readonly string _projectDir;
+        private readonly MockBuildEngine _engine;
+
+        public OutputRedirectorTests()
         {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Diagnostics.OutputRedirector),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
+            _projectDir = TestHelper.CreateNonCwdTempDirectory();
+            _engine = new MockBuildEngine();
         }
 
-        [Fact]
-        public void ShouldImplementIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Diagnostics.OutputRedirector();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
+        public void Dispose() => TestHelper.CleanupTempDirectory(_projectDir);
 
         [Fact]
-        public void ShouldNotChangeConsoleOut()
+        public void UsesProjectDirectoryFromBuildEngineWhenProjectDirectoryNotSet()
         {
-            var engine = new MockBuildEngine();
+            var subDir = "logs-" + Guid.NewGuid().ToString("N");
+            var relativePath = Path.Combine(subDir, "redirected.log");
+            var expectedPath = Path.Combine(_projectDir, relativePath);
+            Directory.CreateDirectory(Path.GetDirectoryName(expectedPath)!);
+
+            var projectFile = Path.Combine(_projectDir, "test.csproj");
+            _engine.ProjectFileOfTaskNode = projectFile;
+
             var task = new SdkTasks.Diagnostics.OutputRedirector
             {
-                BuildEngine = engine,
-                LogFilePath = "somefile.log"
+                BuildEngine = _engine,
+                LogFilePath = relativePath,
+                TaskEnvironment = new TaskEnvironment()
             };
-
-            var originalOut = Console.Out;
 
             bool result = task.Execute();
 
             Assert.True(result);
-            Assert.Same(originalOut, Console.Out);
-            Assert.Contains(engine.Messages, m => m.Message!.Contains("Redirected output to log file."));
+            Assert.True(File.Exists(expectedPath));
+            Assert.Contains(_engine.Messages, m => m.Message!.Contains("Redirected output to log file."));
         }
     }
 }

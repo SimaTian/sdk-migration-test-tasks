@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -57,7 +57,7 @@ namespace SdkTasks.Build
             if (state != null && state.IsInitialized)
             {
                 Log.LogMessage(MessageImportance.Low,
-                    "Cache hit for '{0}' — reusing resolved path '{1}'.",
+                    "Cache hit for '{0}' â€” reusing resolved path '{1}'.",
                     ConfigFileName, state.ResolvedPaths[ConfigFileName]);
 
                 ConfigFilePath = state.ResolvedPaths[ConfigFileName];

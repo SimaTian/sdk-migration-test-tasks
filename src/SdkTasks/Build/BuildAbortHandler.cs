@@ -1,4 +1,4 @@
-// BuildAbortHandler - Handles build abort scenarios based on exit codes
+﻿// BuildAbortHandler - Handles build abort scenarios based on exit codes
 using System;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;

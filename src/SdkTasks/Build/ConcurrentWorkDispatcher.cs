@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -31,6 +31,16 @@ namespace SdkTasks.Build
                 return true;
             }
 
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             string projectDir = TaskEnvironment.ProjectDirectory;
             Log.LogMessage(MessageImportance.Normal, $"Queuing {WorkItems.Length} work items from '{projectDir}'.");
 
@@ -47,7 +57,7 @@ namespace SdkTasks.Build
                 {
                     try
                     {
-                        var result = ProcessWorkItem(captured, projectDir);
+                        var result = ProcessWorkItem(captured);
                         if (result != null)
                             completed.Add(result);
                     }
@@ -77,7 +87,7 @@ namespace SdkTasks.Build
             return errors.IsEmpty;
         }
 
-        private ITaskItem? ProcessWorkItem(ITaskItem item, string projectDir)
+        private ITaskItem? ProcessWorkItem(ITaskItem item)
         {
             string identity = item.ItemSpec;
             string category = item.GetMetadata("Category") ?? string.Empty;
@@ -86,9 +96,7 @@ namespace SdkTasks.Build
             string resolvedPath;
             if (!string.IsNullOrEmpty(configPath))
             {
-                resolvedPath = Path.IsPathRooted(configPath)
-                    ? configPath
-                    : Path.Combine(projectDir, configPath);
+                resolvedPath = TaskEnvironment.GetAbsolutePath(configPath);
             }
             else if (category.Equals("ConfigPath", StringComparison.OrdinalIgnoreCase))
             {
@@ -101,7 +109,7 @@ namespace SdkTasks.Build
             }
             else
             {
-                resolvedPath = Path.Combine(projectDir, identity);
+                resolvedPath = TaskEnvironment.GetAbsolutePath(identity);
             }
 
             var result = new TaskItem(identity);

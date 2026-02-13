@@ -1,4 +1,4 @@
-// OutputDirectoryValidator - Validates and creates output directories as needed
+﻿// OutputDirectoryValidator - Validates and creates output directories as needed
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -14,6 +14,16 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (string.IsNullOrEmpty(DirectoryPath))
             {
                 Log.LogError("DirectoryPath is required.");

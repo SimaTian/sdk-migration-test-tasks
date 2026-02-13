@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -11,7 +11,7 @@ namespace SdkTasks.Versioning
     [MSBuildMultiThreadableTask]
     public class VersionMetadataUpdater : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         [Required]
         public ITaskItem[] TargetFiles { get; set; } = Array.Empty<ITaskItem>();
@@ -53,6 +53,17 @@ namespace SdkTasks.Versioning
         {
             try
             {
+                // Auto-initialize ProjectDirectory from BuildEngine when not set
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 string composedVersion = ComposeVersionString();
                 string assemblyVersion = ComposeAssemblyVersion();
 
@@ -63,7 +74,6 @@ namespace SdkTasks.Versioning
 
                 foreach (ITaskItem targetFile in TargetFiles)
                 {
-                    // CORRECT: Execute() uses TaskEnvironment for path resolution
                     string absolutePath = TaskEnvironment.GetAbsolutePath(targetFile.ItemSpec);
 
                     if (!File.Exists(absolutePath))
@@ -77,7 +87,6 @@ namespace SdkTasks.Versioning
                         BackupOriginalVersion(targetFile.ItemSpec);
                     }
 
-                    // BUG: passes raw ItemSpec to LoadFileContent which doesn't resolve it
                     string content = LoadFileContent(targetFile.ItemSpec);
                     bool isProjectFile = absolutePath.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase);
 
@@ -118,34 +127,32 @@ namespace SdkTasks.Versioning
             }
         }
 
-        // BUG: Uses Path.GetFullPath() instead of TaskEnvironment.GetAbsolutePath()
         private void BackupOriginalVersion(string filePath)
         {
+            string absoluteFilePath = TaskEnvironment.GetAbsolutePath(filePath);
+            
             string backupDir = string.IsNullOrEmpty(PreservationDirectory)
-                ? Path.GetDirectoryName(filePath) ?? string.Empty
-                : PreservationDirectory;
+                ? Path.GetDirectoryName(absoluteFilePath) ?? string.Empty
+                : TaskEnvironment.GetAbsolutePath(PreservationDirectory);
 
-            string fileName = Path.GetFileName(filePath);
+            string fileName = Path.GetFileName(absoluteFilePath);
             string backupPath = Path.Combine(backupDir, fileName + ".bak");
 
-            File.Copy(Path.GetFullPath(filePath), Path.GetFullPath(backupPath), overwrite: true);
+            File.Copy(absoluteFilePath, backupPath, overwrite: true);
 
             Log.LogMessage(MessageImportance.Low, "Preserved original: {0}", backupPath);
         }
 
-        // BUG: Reads file using unresolved path directly
         private string LoadFileContent(string path)
         {
-            return File.ReadAllText(path);
+            return File.ReadAllText(TaskEnvironment.GetAbsolutePath(path));
         }
 
-        // BUG: Uses Path.GetFullPath() instead of TaskEnvironment.GetAbsolutePath()
         private void PersistFileContent(string path, string content)
         {
-            File.WriteAllText(Path.GetFullPath(path), content);
+            File.WriteAllText(TaskEnvironment.GetAbsolutePath(path), content);
         }
 
-        // BUG: Falls back to Environment.GetEnvironmentVariable() directly
         private string ComposeVersionString()
         {
             string version = VersionPrefix;
@@ -158,7 +165,7 @@ namespace SdkTasks.Versioning
             string label = BuildLabel;
             if (string.IsNullOrEmpty(label))
             {
-                label = Environment.GetEnvironmentVariable("BUILD_BUILDNUMBER") ?? string.Empty;
+                label = TaskEnvironment.GetEnvironmentVariable("BUILD_BUILDNUMBER") ?? string.Empty;
             }
 
             if (!string.IsNullOrEmpty(label))

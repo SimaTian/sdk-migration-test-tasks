@@ -1,4 +1,4 @@
-// OutputRedirector - Redirects build output to a log file
+﻿// OutputRedirector - Redirects build output to a log file
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -14,6 +14,17 @@ namespace SdkTasks.Diagnostics
 
         public override bool Execute()
         {
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             var absolutePath = TaskEnvironment.GetAbsolutePath(LogFilePath!);
             using var writer = new StreamWriter((string)absolutePath);
             writer.WriteLine("Redirected output to log file.");

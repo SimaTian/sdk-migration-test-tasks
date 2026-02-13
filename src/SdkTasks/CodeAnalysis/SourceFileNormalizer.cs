@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -34,6 +34,16 @@ namespace SdkTasks.CodeAnalysis
         {
             try
             {
+                if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+                {
+                    string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                    if (!string.IsNullOrEmpty(projectFile))
+                    {
+                        TaskEnvironment.ProjectDirectory =
+                            Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                    }
+                }
+
                 var extensions = ParseIncludedExtensions(IncludedExtensions);
                 var targetEnc = MapEncoding(DesiredEncoding);
                 var candidateFiles = DiscoverSourceFiles(extensions);
@@ -116,13 +126,13 @@ namespace SdkTasks.CodeAnalysis
         // BUG: Path.GetFullPath depends on process-wide current directory
         private List<string> DiscoverSourceFiles(HashSet<string> extensions)
         {
-            var rootDir = Path.GetFullPath(RootDirectory);
+            var rootDir = TaskEnvironment.GetAbsolutePath(RootDirectory);
             return Directory.EnumerateFiles(rootDir, "*.*", SearchOption.AllDirectories)
                             .Where(f => extensions.Contains(Path.GetExtension(f)))
                             .ToList();
         }
 
-        // BUG: Hidden — File.ReadAllBytes with Path.GetFullPath
+        // BUG: Hidden â€” File.ReadAllBytes with Path.GetFullPath
         private Encoding InspectEncoding(string filePath)
         {
             var resolvedPath = MakeAbsolute(filePath);
@@ -169,7 +179,7 @@ namespace SdkTasks.CodeAnalysis
         // BUG: Backup directory resolved via Path.GetFullPath
         private void PrepareBackupLocation()
         {
-            var rootDir = Path.GetFullPath(RootDirectory);
+            var rootDir = TaskEnvironment.GetAbsolutePath(RootDirectory);
             BackupLocation = Path.Combine(rootDir, ".normalization-backups",
                 DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"));
             Directory.CreateDirectory(BackupLocation);
@@ -179,18 +189,18 @@ namespace SdkTasks.CodeAnalysis
         private void PreserveOriginalFile(string originalFile)
         {
             var resolvedOriginal = MakeAbsolute(originalFile);
-            var rootDir = Path.GetFullPath(RootDirectory);
+            var rootDir = TaskEnvironment.GetAbsolutePath(RootDirectory);
             var relativePath = Path.GetRelativePath(rootDir, resolvedOriginal);
-            var preservedPath = Path.Combine(Path.GetFullPath(BackupLocation), relativePath);
+            var preservedPath = Path.Combine(TaskEnvironment.GetAbsolutePath(BackupLocation), relativePath);
 
             Directory.CreateDirectory(Path.GetDirectoryName(preservedPath)!);
             File.Copy(resolvedOriginal, preservedPath, overwrite: true);
         }
 
-        // BUG: Hidden helper — Path.GetFullPath depends on process-wide current directory
+        // BUG: Hidden helper â€” Path.GetFullPath depends on process-wide current directory
         private string MakeAbsolute(string path)
         {
-            return Path.GetFullPath(path);
+            return TaskEnvironment.GetAbsolutePath(path);
         }
 
         private static bool EncodingsAreEquivalent(Encoding a, Encoding b)

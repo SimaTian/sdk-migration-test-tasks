@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -29,7 +29,7 @@ namespace SdkTasks.Build
                 if (!string.IsNullOrEmpty(projectFile))
                 {
                     TaskEnvironment.ProjectDirectory =
-                        Path.GetDirectoryName(projectFile) ?? string.Empty;
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
                 }
             }
 

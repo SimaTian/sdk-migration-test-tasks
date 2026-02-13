@@ -9,7 +9,14 @@ namespace SdkTasks.Tests.Infrastructure
     /// </summary>
     public class TrackingTaskEnvironment : TaskEnvironment
     {
-        public int GetCanonicalFormCallCount { get; private set; }
+        public TrackingTaskEnvironment() { }
+
+        public TrackingTaskEnvironment(string projectDir)
+        {
+            ProjectDirectory = projectDir;
+        }
+
+        public int GetCanonicalFormCallCount{ get; private set; }
         public int GetAbsolutePathCallCount { get; private set; }
         public int GetEnvironmentVariableCallCount { get; private set; }
         public List<string> GetCanonicalFormArgs { get; } = new();

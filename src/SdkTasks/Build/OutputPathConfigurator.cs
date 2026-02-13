@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -12,13 +12,6 @@ namespace SdkTasks.Build
 {
     internal static class PathHelpers
     {
-        public static string NormalizeSeparators(string path)
-        {
-            if (string.IsNullOrEmpty(path))
-                return path;
-            return path.Replace('/', Path.DirectorySeparatorChar);
-        }
-
         public static string EnsureTrailingSlash(string path)
         {
             if (string.IsNullOrEmpty(path))
@@ -42,35 +35,12 @@ namespace SdkTasks.Build
                 return false;
             }
         }
-
-        public static string MakeAbsolute(string path, string basePath)
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return string.Empty;
-
-            string normalized = NormalizeSeparators(path.Trim());
-            if (Path.IsPathRooted(normalized))
-                return normalized;
-
-            if (string.IsNullOrWhiteSpace(basePath))
-                return normalized;
-
-            return Path.Combine(basePath, normalized);
-        }
-
-        public static string CombineAndNormalize(string basePath, string relativePath)
-        {
-            if (string.IsNullOrEmpty(relativePath))
-                return EnsureTrailingSlash(basePath);
-
-            return MakeAbsolute(relativePath, basePath);
-        }
     }
 
     [MSBuildMultiThreadableTask]
     public class OutputPathConfigurator : MSBuildTask, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new TaskEnvironment();
 
         [Required]
         public string OutputDirectory { get; set; } = string.Empty;
@@ -158,7 +128,7 @@ namespace SdkTasks.Build
             }
 
             string resolvedPath = TaskEnvironment.GetAbsolutePath(refPath);
-            Log.LogMessage(MessageImportance.Low, "Reference '{0}' → '{1}'.", refPath, resolvedPath);
+            Log.LogMessage(MessageImportance.Low, "Reference '{0}' â†’ '{1}'.", refPath, resolvedPath);
 
             var result = new TaskItem(resolvedPath);
             result.SetMetadata("OriginalItemSpec", refPath);

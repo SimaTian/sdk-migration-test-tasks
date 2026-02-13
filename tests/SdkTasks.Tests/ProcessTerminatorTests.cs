@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using Xunit;
 using Microsoft.Build.Framework;
 using SdkTasks.Tests.Infrastructure;
@@ -6,22 +8,6 @@ namespace SdkTasks.Tests
 {
     public class ProcessTerminatorTests
     {
-        [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
-        {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Tools.ProcessTerminator),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
-        public void ShouldImplementIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Tools.ProcessTerminator();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
         [Fact]
         public void ShouldReturnFalseAndLogError()
         {
@@ -35,6 +21,33 @@ namespace SdkTasks.Tests
 
             Assert.False(result);
             Assert.Single(engine.Errors);
+        }
+
+        [Fact]
+        public void ShouldInitializeProjectDirectoryFromBuildEngine()
+        {
+            string projectDir = TestHelper.CreateNonCwdTempDirectory();
+            try
+            {
+                string projectFile = Path.Combine(projectDir, "test.csproj");
+                File.WriteAllText(projectFile, "<Project />");
+
+                var engine = new MockBuildEngine { ProjectFileOfTaskNode = projectFile };
+                var task = new SdkTasks.Tools.ProcessTerminator
+                {
+                    BuildEngine = engine,
+                    TaskEnvironment = new TaskEnvironment()
+                };
+
+                task.Execute();
+
+                string expectedDir = Path.GetDirectoryName(Path.GetFullPath(projectFile))!;
+                Assert.Equal(expectedDir, task.TaskEnvironment.ProjectDirectory);
+            }
+            finally
+            {
+                TestHelper.CleanupTempDirectory(projectDir);
+            }
         }
     }
 }

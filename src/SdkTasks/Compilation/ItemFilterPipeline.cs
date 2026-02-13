@@ -31,6 +31,16 @@ namespace SdkTasks.Compilation
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (InputItems == null || InputItems.Length == 0)
             {
                 FilteredItems = Array.Empty<ITaskItem>();
@@ -96,9 +106,11 @@ namespace SdkTasks.Compilation
 
         private ItemData NormalizePaths(ItemData data)
         {
-            // Skip normalization for ExternalReference — handled in ResolveGroupPaths
             if (string.Equals(data.Category, "ExternalReference", StringComparison.OrdinalIgnoreCase))
-                return data;
+            {
+                string resolved = TaskEnvironment.GetAbsolutePath(data.Path);
+                return data with { Path = resolved };
+            }
             string normalized = TaskEnvironment.GetCanonicalForm(data.Path);
             return data with { Path = normalized };
         }
@@ -111,7 +123,7 @@ namespace SdkTasks.Compilation
             {
                 if (string.Equals(group.Key, "ExternalReference", StringComparison.OrdinalIgnoreCase))
                 {
-                    string resolved = Path.GetFullPath(item.Path);
+                    string resolved = TaskEnvironment.GetAbsolutePath(item.Path);
                     yield return item with { Path = resolved };
                 }
                 else

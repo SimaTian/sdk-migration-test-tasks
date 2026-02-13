@@ -1,4 +1,4 @@
-// FileExistenceChecker - Checks whether a specified file exists and reads its content
+﻿// FileExistenceChecker - Checks whether a specified file exists and reads its content
 using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
@@ -18,6 +18,17 @@ namespace SdkTasks.Build
             {
                 Log.LogError("FilePath is required.");
                 return false;
+            }
+
+            // Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
             }
 
             var absolutePath = TaskEnvironment.GetAbsolutePath(FilePath);

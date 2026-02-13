@@ -52,5 +52,34 @@ namespace SdkTasks.Tests
             Assert.True(result);
             Assert.Equal(Path.Combine(_projectDir, fileName), task.ResolvedPath);
         }
+
+        [Fact]
+        public void ShouldAutoInitializeProjectDirectoryFromBuildEngine()
+        {
+            var fileName = "auto-init-test.txt";
+            File.WriteAllText(Path.Combine(_projectDir, fileName), "content");
+
+            // Create TaskEnvironment with empty ProjectDirectory
+            var taskEnv = new TaskEnvironment();
+            
+            // Set BuildEngine with absolute project file path
+            var engine = new MockBuildEngine
+            {
+                ProjectFileOfTaskNode = Path.Combine(_projectDir, "test.csproj")
+            };
+            
+            var task = new SdkTasks.Analysis.DependencyPathResolver
+            {
+                BuildEngine = engine,
+                InputPath = fileName,
+                TaskEnvironment = taskEnv
+            };
+
+            bool result = task.Execute();
+
+            Assert.True(result);
+            Assert.NotNull(task.ResolvedPath);
+            Assert.Equal(Path.Combine(_projectDir, fileName), task.ResolvedPath);
+        }
     }
 }

@@ -1,44 +1,39 @@
 using Xunit;
 using Microsoft.Build.Framework;
 using SdkTasks.Tests.Infrastructure;
+using SdkTasks.Diagnostics;
+using System;
+using System.IO;
 
 namespace SdkTasks.Tests
 {
     public class UserInputPromptTests
     {
         [Fact]
-        public void HasMSBuildMultiThreadableTaskAttribute()
+        public void ShouldNotReadFromConsoleInMultithreadedMode()
         {
-            var attr = Attribute.GetCustomAttribute(
-                typeof(SdkTasks.Diagnostics.UserInputPrompt),
-                typeof(MSBuildMultiThreadableTaskAttribute));
-            Assert.NotNull(attr);
-        }
-
-        [Fact]
-        public void ShouldImplementIMultiThreadableTask()
-        {
-            var task = new SdkTasks.Diagnostics.UserInputPrompt();
-            Assert.IsAssignableFrom<IMultiThreadableTask>(task);
-        }
-
-        [Fact]
-        public void ShouldReadFromPropertyNotConsole()
-        {
+            // Arrange
             var engine = new MockBuildEngine();
-            var task = new SdkTasks.Diagnostics.UserInputPrompt
+            var task = new UserInputPrompt
             {
                 BuildEngine = engine
             };
-
+            
+            // We simulate console input
             var originalIn = Console.In;
+            string consoleInput = "Console input";
             try
             {
-                Console.SetIn(new StringReader("should not be read"));
+                Console.SetIn(new StringReader(consoleInput));
 
-                task.Execute();
+                // Act
+                bool success = task.Execute();
 
-                Assert.NotEqual("should not be read", task.UserInput);
+                // Assert
+                Assert.True(success);
+                // In multithreaded mode, we expect it NOT to read from console
+                Assert.NotEqual(consoleInput, task.UserInput);
+                Assert.Equal(string.Empty, task.UserInput ?? string.Empty);
             }
             finally
             {

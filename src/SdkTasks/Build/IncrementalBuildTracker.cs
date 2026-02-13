@@ -1,4 +1,4 @@
-// IncrementalBuildTracker - Tracks build execution count and last processed file
+﻿// IncrementalBuildTracker - Tracks build execution count and last processed file
 using System.IO;
 using System.Threading;
 using Microsoft.Build.Framework;
@@ -9,7 +9,7 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class IncrementalBuildTracker : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
         private int _executionCount = 0;
         private string? _lastProcessedFile = null;
@@ -32,7 +32,7 @@ namespace SdkTasks.Build
                 }
             }
 
-            var resolvedPath = TaskEnvironment.GetAbsolutePath(InputFile);
+            var resolvedPath = TaskEnvironment.GetCanonicalForm(InputFile);
 
             int currentCount = Interlocked.Increment(ref _executionCount);
             ExecutionNumber = currentCount;

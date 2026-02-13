@@ -8,16 +8,17 @@ namespace SdkTasks.Tests.Infrastructure
         public List<BuildErrorEventArgs> Errors { get; } = new();
         public List<BuildWarningEventArgs> Warnings { get; } = new();
         public List<BuildMessageEventArgs> Messages { get; } = new();
+        public List<CustomBuildEventArgs> LoggedCustomEvents { get; } = new();
 
         public bool ContinueOnError => false;
         public int LineNumberOfTaskNode => 0;
         public int ColumnNumberOfTaskNode => 0;
-        public string ProjectFileOfTaskNode => "test.csproj";
+        public string ProjectFileOfTaskNode { get; set; } = "test.csproj";
 
         public void LogErrorEvent(BuildErrorEventArgs e) => Errors.Add(e);
         public void LogWarningEvent(BuildWarningEventArgs e) => Warnings.Add(e);
         public void LogMessageEvent(BuildMessageEventArgs e) => Messages.Add(e);
-        public void LogCustomEvent(CustomBuildEventArgs e) { }
+        public void LogCustomEvent(CustomBuildEventArgs e) => LoggedCustomEvents.Add(e);
 
         public bool BuildProjectFile(string projectFileName, string[] targetNames, IDictionary globalProperties, IDictionary targetOutputs) => true;
 

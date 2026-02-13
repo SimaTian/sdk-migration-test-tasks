@@ -1,5 +1,6 @@
-// LegacyPathResolver - Resolves file paths and reads environment configuration
+﻿// LegacyPathResolver - Resolves file paths and reads environment configuration
 using System;
+using System.IO;
 using Microsoft.Build.Framework;
 using Microsoft.Build.Utilities;
 
@@ -18,6 +19,16 @@ namespace SdkTasks.Compatibility
 
         public override bool Execute()
         {
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             string resolvedPath = TaskEnvironment.GetAbsolutePath(InputPath);
 
             string? envValue = TaskEnvironment.GetEnvironmentVariable(EnvVarName);

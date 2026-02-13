@@ -14,9 +14,9 @@ namespace SdkTasks.Build
     [MSBuildMultiThreadableTask]
     public class AssemblyCacheResolver : Microsoft.Build.Utilities.Task, IMultiThreadableTask
     {
-        public TaskEnvironment TaskEnvironment { get; set; } = null!;
+        public TaskEnvironment TaskEnvironment { get; set; } = new();
 
-        private static readonly ConcurrentDictionary<string, string> _pathCache = new();
+        private readonly ConcurrentDictionary<string, string> _pathCache = new();
 
         private static readonly string[] s_probeExtensions = new[] { ".dll", ".exe" };
 
@@ -30,6 +30,21 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            // Defensive TaskEnvironment initialization
+            if (TaskEnvironment == null)
+            {
+                TaskEnvironment = new TaskEnvironment();
+            }
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             if (AssemblyReferences == null || AssemblyReferences.Length == 0)
             {
                 ResolvedReferences = Array.Empty<ITaskItem>();

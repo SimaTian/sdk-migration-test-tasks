@@ -1,4 +1,4 @@
-// Licensed to the .NET Foundation under one or more agreements.
+﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
@@ -26,6 +26,17 @@ namespace SdkTasks.Build
 
         public override bool Execute()
         {
+            // CRITICAL: Auto-initialize ProjectDirectory from BuildEngine when not set
+            if (string.IsNullOrEmpty(TaskEnvironment.ProjectDirectory) && BuildEngine != null)
+            {
+                string projectFile = BuildEngine.ProjectFileOfTaskNode;
+                if (!string.IsNullOrEmpty(projectFile))
+                {
+                    TaskEnvironment.ProjectDirectory =
+                        Path.GetDirectoryName(Path.GetFullPath(projectFile)) ?? string.Empty;
+                }
+            }
+
             string? intermediateFile = null;
 
             try
@@ -49,8 +60,7 @@ namespace SdkTasks.Build
                     TransformName);
 
                 // Build a deterministic, project-isolated intermediate file path.
-                intermediateFile = Path.Combine(
-                    TaskEnvironment.ProjectDirectory,
+                intermediateFile = TaskEnvironment.GetAbsolutePath(
                     $"msbuild_transform_{TransformName}.tmp");
 
                 // Phase 1: Apply the transformation.
